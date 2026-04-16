@@ -5,8 +5,14 @@ export default function App() {
   const [authMode, setAuthMode] = useState('login'); 
 
   // --- СТАН ДЛЯ ЛАЙКІВ ---
-  const [likes, setLikes] = useState(2); 
+  const [likes, setLikes] = useState(2);
   const [hasLiked, setHasLiked] = useState(false);
+
+  // AndPoint
+  const CAT_ID = 1;
+  const ENDPOINT_GET_LIKES = `https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod/likes/${CAT_ID}`;
+  const ENDPOINT_POST_LIKE = `https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod/likes/`;
+  const ENDPOINT_DELETE_LIKE = `https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod/likes/${CAT_ID}`;
 
   // --- СТАН ДЛЯ КОМЕНТАРІВ ---
   const [comments, setComments] = useState([
@@ -14,7 +20,7 @@ export default function App() {
     { id: 2, text: "Обожнюю рудих котів, просто супер.", author: "Максим", isMine: false }
   ]);
   const [newComment, setNewComment] = useState('');
-  
+
   // Стан для редагування
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editCommentText, setEditCommentText] = useState('');
@@ -27,17 +33,140 @@ export default function App() {
       setLikes(3);
     }
   }, []);
+// Завантаження лайків при відкритті сторінки
+  useEffect(() => {
+    const fetchLikes = async () => {
+      try {
+        const response = await fetch(ENDPOINT_GET_LIKES);
 
-  // --- ФУНКЦІЇ ДЛЯ ЛАЙКІВ ---
-  const handleLike = () => {
-    if (!hasLiked) {
-      setLikes(prev => prev + 1);
+        // Якщо сервер каже "Не знайдено" (404), значить лайків 0
+        if (!response.ok) {
+            setLikes(0);
+            return;
+        }
+
+        const data = await response.json();
+
+        // Розумний парсинг лайків (захист від NaN)
+        if (data !== undefined && data !== null) {
+          let newLikes = 0;
+          if (typeof data === 'number') {
+            newLikes = data;
+          } else if (data.likes_count !== undefined) {
+            newLikes = Number(data.likes_count);
+          } else if (data.likes !== undefined) {
+            newLikes = Number(data.likes);
+          } else {
+            newLikes = Number(data);
+          }
+          setLikes(isNaN(newLikes) ? 0 : newLikes);
+        }
+      } catch (error) {
+        console.error('Помилка завантаження лайків з сервера:', error);
+        setLikes(0);
+      }
+    };
+
+    fetchLikes();
+
+    const alreadyLiked = localStorage.getItem('liked_current_cat') === 'true';
+    if (alreadyLiked) {
       setHasLiked(true);
+    }
+  }, []);
+  // --- ФУНКЦІЇ ДЛЯ ЛАЙКІВ ---
+  // Завантаження лайків при відкритті сторінки
+  useEffect(() => {
+    const fetchLikes = async () => {
+      try {
+        const response = await fetch(ENDPOINT_GET_LIKES);
+
+        // Якщо сервер каже "Не знайдено" (404), значить лайків 0
+        if (!response.ok) {
+            setLikes(0);
+            return;
+        }
+
+        const data = await response.json();
+
+        // Розумний парсинг лайків (захист від NaN)
+        if (data !== undefined && data !== null) {
+          let newLikes = 0;
+          if (typeof data === 'number') {
+            newLikes = data;
+          } else if (data.likes_count !== undefined) {
+            newLikes = Number(data.likes_count);
+          } else if (data.likes !== undefined) {
+            newLikes = Number(data.likes);
+          } else {
+            newLikes = Number(data);
+          }
+          setLikes(isNaN(newLikes) ? 0 : newLikes);
+        }
+      } catch (error) {
+        console.error('Помилка завантаження лайків з сервера:', error);
+        setLikes(0);
+      }
+    };
+
+    fetchLikes();
+
+    const alreadyLiked = localStorage.getItem('liked_current_cat') === 'true';
+    if (alreadyLiked) {
+      setHasLiked(true);
+    }
+  }, []);
+
+  // Головна функція лайку
+  const handleLike = async () => {
+    // 1. Оптимістичне оновлення UI (з захистом від мінусів)
+    const isLikingNow = !hasLiked;
+    setHasLiked(isLikingNow);
+    setLikes(prev => isLikingNow ? prev + 1 : Math.max(0, prev - 1));
+
+    if (isLikingNow) {
       localStorage.setItem('liked_current_cat', 'true');
     } else {
-      setLikes(prev => prev - 1);
-      setHasLiked(false);
       localStorage.removeItem('liked_current_cat');
+    }
+
+    // 2. Відправляємо дані на БЕКЕНД
+    try {
+      let response;
+
+      if (isLikingNow) {
+        response = await fetch(ENDPOINT_POST_LIKE, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            post_id: CAT_ID
+          }),
+        });
+      } else {
+        response = await fetch(ENDPOINT_DELETE_LIKE, {
+          method: 'DELETE',
+        });
+      }
+
+      if (!response.ok) {
+        throw new Error('Помилка сервера при збереженні лайку');
+      }
+
+    } catch (error) {
+      console.error('Не вдалося відправити лайк на сервер:', error);
+
+      // 3. Відкат змін (теж із захистом від мінусів)
+      alert('Не вдалося зберегти лайк на сервері. Перевірте з\'єднання.');
+      setHasLiked(!isLikingNow);
+      setLikes(prev => !isLikingNow ? prev + 1 : Math.max(0, prev - 1));
+
+      if (!isLikingNow) {
+        localStorage.setItem('liked_current_cat', 'true');
+      } else {
+        localStorage.removeItem('liked_current_cat');
+      }
     }
   };
 
