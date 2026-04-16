@@ -4,40 +4,90 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [authMode, setAuthMode] = useState('login'); 
 
-  // Стан для лайків (наприклад, у котика вже було 2 лайки від інших)
+  // --- СТАН ДЛЯ ЛАЙКІВ ---
   const [likes, setLikes] = useState(2); 
   const [hasLiked, setHasLiked] = useState(false);
+
+  // --- СТАН ДЛЯ КОМЕНТАРІВ ---
+  const [comments, setComments] = useState([
+    { id: 1, text: "Який милий пухнастик! 😍", author: "Олена", isMine: false },
+    { id: 2, text: "Обожнюю рудих котів, просто супер.", author: "Максим", isMine: false }
+  ]);
+  const [newComment, setNewComment] = useState('');
+  
+  // Стан для редагування
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editCommentText, setEditCommentText] = useState('');
 
   // Перевіряємо локальну пам'ять пристрою під час завантаження сторінки
   useEffect(() => {
     const alreadyLiked = localStorage.getItem('liked_current_cat') === 'true';
     if (alreadyLiked) {
       setHasLiked(true);
-      setLikes(3); // Базові 2 лайки + 1 лайк з цього пристрою
+      setLikes(3);
     }
   }, []);
 
-  // Функція обробки кліку на кнопку "Підтримати"
+  // --- ФУНКЦІЇ ДЛЯ ЛАЙКІВ ---
   const handleLike = () => {
     if (!hasLiked) {
-      // Ставимо лайк
       setLikes(prev => prev + 1);
       setHasLiked(true);
-      localStorage.setItem('liked_current_cat', 'true'); // Зберігаємо в браузер
+      localStorage.setItem('liked_current_cat', 'true');
     } else {
-      // Забираємо лайк
       setLikes(prev => prev - 1);
       setHasLiked(false);
-      localStorage.removeItem('liked_current_cat'); // Видаляємо з браузера
+      localStorage.removeItem('liked_current_cat');
     }
+  };
+
+  // --- ФУНКЦІЇ ДЛЯ КОМЕНТАРІВ ---
+  const handleAddComment = (e) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+    
+    const comment = {
+      id: Date.now(),
+      text: newComment,
+      author: "Ви (Гість)", // В реальному житті тут буде нікнейм авторизованого юзера
+      isMine: true // Позначаємо, що це наш коментар, щоб ми могли його видаляти/редагувати
+    };
+    
+    setComments([...comments, comment]);
+    setNewComment('');
+  };
+
+  const handleDeleteComment = (id) => {
+    // Форма підтвердження видалення (вбудована у браузер)
+    if (window.confirm("Ви точно хочете видалити цей коментар?")) {
+      setComments(comments.filter(c => c.id !== id));
+    }
+  };
+
+  const startEditing = (comment) => {
+    setEditingCommentId(comment.id);
+    setEditCommentText(comment.text);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editCommentText.trim()) return;
+    setComments(comments.map(c => 
+      c.id === editingCommentId ? { ...c, text: editCommentText } : c
+    ));
+    setEditingCommentId(null);
+    setEditCommentText('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCommentId(null);
+    setEditCommentText('');
   };
 
   return (
     <div className="flex h-screen bg-[#f4f4f5] font-sans">
 
         {/* БІЧНА ПАНЕЛЬ (Sidebar) */}
-        <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-            
+        <div className="w-64 bg-white border-r border-gray-200 flex flex-col hidden md:flex shrink-0">
             {/* Логотип */}
             <div className="p-6 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full border-4 border-[#bf04ff] flex items-center justify-center">
@@ -147,88 +197,154 @@ export default function App() {
         </div>
 
         {/* ГОЛОВНА ЗОНА */}
-        <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
+        <div className="flex-1 flex flex-col items-center p-6 md:p-8 overflow-y-auto w-full">
             
-            {/* Головна - Картка котика */}
+            {/* Головна - Картка котика + Коментарі */}
             {activeTab === 'home' && (
-                <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 w-full max-w-[420px] overflow-hidden flex flex-col">
-                    <div className="h-[400px] w-full bg-gray-100 relative">
-                        <img src="https://images.unsplash.com/photo-1533738363-b7f9aef128ce?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="cat" className="w-full h-full object-cover" />
-                    </div>
-                    <div className="p-6">
-                        <div className="flex items-center justify-between mb-2">
-                            <h2 className="text-3xl font-black text-gray-900">екке, 32 р.</h2>
-                            <div className="flex items-center gap-1 bg-orange-50 px-3 py-1.5 rounded-full transition-all">
-                                <span className="text-orange-500 text-lg">🔥</span>
-                                {/* Відображаємо змінну likes замість жорсткого тексту */}
-                                <span className="text-orange-600 font-bold">{likes}</span>
+                <div className="w-full max-w-[420px] flex flex-col gap-6 pb-12 mt-auto mb-auto">
+                    
+                    {/* Картка */}
+                    <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 w-full overflow-hidden flex flex-col">
+                        <div className="h-[400px] w-full bg-gray-100 relative">
+                            <img src="https://images.unsplash.com/photo-1533738363-b7f9aef128ce?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="cat" className="w-full h-full object-cover" />
+                        </div>
+                        <div className="p-6">
+                            <div className="flex items-center justify-between mb-2">
+                                <h2 className="text-3xl font-black text-gray-900">Рижик, 3 р.</h2>
+                                <div className="flex items-center gap-1 bg-orange-50 px-3 py-1.5 rounded-full transition-all">
+                                    <span className="text-orange-500 text-lg">🔥</span>
+                                    <span className="text-orange-600 font-bold">{likes}</span>
+                                </div>
+                            </div>
+                            <p className="text-gray-600 text-lg mb-8">Любить спати на клавіатурі та їсти сметану.</p>
+                            <div className="flex gap-4">
+                                <button 
+                                    onClick={handleLike}
+                                    className={`flex-1 font-bold py-4 rounded-2xl transition-all shadow-lg ${
+                                        hasLiked 
+                                        ? 'bg-purple-50 text-[#bf04ff] border-2 border-purple-200 shadow-none' 
+                                        : 'bg-[#bf04ff] hover:bg-[#a103d8] text-white border-2 border-[#bf04ff] shadow-purple-500/30'
+                                    }`}
+                                >
+                                    {hasLiked ? 'Підтримано 💖' : 'Підтримати'}
+                                </button>
+                                <button className="flex-1 bg-white border-2 border-gray-100 hover:border-gray-200 text-gray-900 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-colors">
+                                    Наступний 
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                                    </svg>
+                                </button>
                             </div>
                         </div>
-                        <p className="text-gray-600 text-lg mb-8">укпур</p>
-                        <div className="flex gap-4">
-                            {/* Динамічна кнопка лайку */}
+                    </div>
+
+                    {/* --- БЛОК КОМЕНТАРІВ --- */}
+                    <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 p-6 w-full">
+                        <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
+                            Коментарі <span className="text-gray-400 font-medium text-lg">({comments.length})</span>
+                        </h3>
+                        
+                        {/* Список коментарів */}
+                        <div className="space-y-4 mb-6">
+                            {comments.length === 0 ? (
+                                <p className="text-gray-500 text-center py-4">Поки що немає коментарів. Станьте першим!</p>
+                            ) : (
+                                comments.map(comment => (
+                                    <div key={comment.id} className={`p-4 rounded-2xl ${comment.isMine ? 'bg-[#fdf4ff] border border-purple-100' : 'bg-gray-50'}`}>
+                                        
+                                        {/* Шапка коментаря */}
+                                        <div className="flex justify-between items-center mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-lg">
+                                                    {comment.author.charAt(0)}
+                                                </div>
+                                                <span className="font-bold text-gray-900 text-sm">{comment.author}</span>
+                                                {comment.isMine && <span className="text-xs bg-[#bf04ff] text-white px-2 py-0.5 rounded-full">Автор</span>}
+                                            </div>
+
+                                            {/* Кнопки Дій (Редагувати/Видалити) тільки для власних коментарів */}
+                                            {comment.isMine && editingCommentId !== comment.id && (
+                                                <div className="flex items-center gap-3">
+                                                    <button onClick={() => startEditing(comment)} className="text-gray-400 hover:text-[#bf04ff] transition-colors" title="Редагувати">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                                    </button>
+                                                    <button onClick={() => handleDeleteComment(comment.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="Видалити">
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Текст або Форма редагування */}
+                                        {editingCommentId === comment.id ? (
+                                            <div className="mt-3">
+                                                <textarea 
+                                                    value={editCommentText}
+                                                    onChange={(e) => setEditCommentText(e.target.value)}
+                                                    className="w-full bg-white border border-[#bf04ff] text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3 outline-none transition-colors resize-none mb-3"
+                                                    rows="2"
+                                                />
+                                                <div className="flex justify-end gap-2">
+                                                    <button onClick={handleCancelEdit} className="px-4 py-2 text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors">
+                                                        Скасувати
+                                                    </button>
+                                                    <button onClick={handleSaveEdit} className="bg-[#bf04ff] hover:bg-[#a103d8] text-white text-sm font-bold px-4 py-2 rounded-xl transition-colors shadow-sm">
+                                                        Зберегти
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-700 ml-10 text-sm leading-relaxed">{comment.text}</p>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        {/* Форма створення нового коментаря */}
+                        <form onSubmit={handleAddComment} className="flex gap-2">
+                            <input 
+                                type="text" 
+                                value={newComment}
+                                onChange={(e) => setNewComment(e.target.value)}
+                                placeholder="Написати коментар..." 
+                                className="flex-1 bg-gray-50 border border-gray-200 text-gray-900 rounded-2xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block px-4 py-3.5 outline-none transition-colors"
+                            />
                             <button 
-                                onClick={handleLike}
-                                className={`flex-1 font-bold py-4 rounded-2xl transition-all shadow-lg ${
-                                    hasLiked 
-                                    ? 'bg-purple-50 text-[#bf04ff] border-2 border-purple-200 shadow-none' // Стан, коли вже лайкнуто
-                                    : 'bg-[#bf04ff] hover:bg-[#a103d8] text-white border-2 border-[#bf04ff] shadow-purple-500/30' // Звичайний стан
+                                type="submit" 
+                                disabled={!newComment.trim()}
+                                className={`flex items-center justify-center w-14 rounded-2xl transition-all ${
+                                    newComment.trim() ? 'bg-[#bf04ff] hover:bg-[#a103d8] text-white shadow-lg shadow-purple-500/30 cursor-pointer' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 }`}
                             >
-                                {hasLiked ? 'Підтримано 💖' : 'Підтримати'}
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
                             </button>
-                            <button className="flex-1 bg-white border-2 border-gray-100 hover:border-gray-200 text-gray-900 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-colors">
-                                Наступний 
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-                                </svg>
-                            </button>
-                        </div>
+                        </form>
                     </div>
+
                 </div>
             )}
 
             {/* Вкладка: ДОДАТИ КОТИКА */}
             {activeTab === 'addCat' && (
-                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100 w-full max-w-md">
+                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100 w-full max-w-md m-auto">
                     <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-2">
                         Новий котик 📸
                     </h2>
 
                     <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
                         <div>
-                            <input 
-                                type="text" 
-                                placeholder="Ім'я котика (напр. Барсік)" 
-                                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
-                            />
+                            <input type="text" placeholder="Ім'я котика (напр. Барсік)" className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
                         </div>
-                        
                         <div>
-                            <input 
-                                type="number" 
-                                placeholder="Вік (років)" 
-                                min="0"
-                                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
-                            />
+                            <input type="number" placeholder="Вік (років)" min="0" className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
                         </div>
-
                         <div>
-                            <input 
-                                type="url" 
-                                placeholder="Посилання на фото (URL)" 
-                                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
-                            />
+                            <input type="url" placeholder="Посилання на фото (URL)" className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
                         </div>
-
                         <div>
-                            <textarea 
-                                placeholder="Розкажи трохи про нього..." 
-                                rows="3"
-                                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors resize-none"
-                            ></textarea>
+                            <textarea placeholder="Розкажи трохи про нього..." rows="3" className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors resize-none"></textarea>
                         </div>
-                        
                         <div className="pt-2">
                             <button className="w-full bg-[#bf04ff] hover:bg-[#a103d8] text-white font-bold py-4 rounded-xl transition-colors shadow-lg shadow-purple-500/30">
                                 Опублікувати 🐾
@@ -240,7 +356,7 @@ export default function App() {
 
             {/* Вкладка Реєстрації/Авторизації */}
             {activeTab === 'auth' && (
-                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100 w-full max-w-md">
+                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100 w-full max-w-md m-auto">
                     <div className="flex justify-center mb-6">
                         <div className="w-12 h-12 rounded-full border-4 border-[#bf04ff] flex items-center justify-center">
                             <div className="w-4 h-4 bg-[#bf04ff] rounded-full"></div>
@@ -258,56 +374,33 @@ export default function App() {
                         {authMode === 'register' && (
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2">Ім'я / Нікнейм</label>
-                                <input 
-                                    type="text" 
-                                    placeholder="Мурзик" 
-                                    className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
-                                />
+                                <input type="text" placeholder="Мурзик" className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
                             </div>
                         )}
-
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Email</label>
-                            <input 
-                                type="email" 
-                                placeholder="yourcat@email.com" 
-                                className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
-                            />
+                            <input type="email" placeholder="yourcat@email.com" className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Пароль</label>
-                            <input 
-                                type="password" 
-                                placeholder="••••••••" 
-                                className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
-                            />
+                            <input type="password" placeholder="••••••••" className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
                         </div>
-                        
                         <div className="pt-2">
                             <button className="w-full bg-[#bf04ff] hover:bg-[#a103d8] text-white font-bold py-4 rounded-xl transition-colors shadow-lg shadow-purple-500/30 mb-4">
                                 {authMode === 'login' ? 'Увійти' : 'Зареєструватися'}
                             </button>
-                            
                             <p className="text-center text-gray-500 font-medium">
                                 {authMode === 'login' ? (
                                     <>
                                         Немає акаунту?{' '}
-                                        <button 
-                                            type="button"
-                                            onClick={() => setAuthMode('register')} 
-                                            className="text-[#bf04ff] hover:underline"
-                                        >
+                                        <button type="button" onClick={() => setAuthMode('register')} className="text-[#bf04ff] hover:underline">
                                             Зареєструватися
                                         </button>
                                     </>
                                 ) : (
                                     <>
                                         Вже є акаунт?{' '}
-                                        <button 
-                                            type="button"
-                                            onClick={() => setAuthMode('login')} 
-                                            className="text-[#bf04ff] hover:underline"
-                                        >
+                                        <button type="button" onClick={() => setAuthMode('login')} className="text-[#bf04ff] hover:underline">
                                             Увійти
                                         </button>
                                     </>
@@ -319,10 +412,10 @@ export default function App() {
             )}
 
             {/* Заглушки */}
-            {activeTab === 'explore' && <h2 className="text-3xl font-bold text-gray-400">Сторінка "Огляд" (В розробці)</h2>}
-            {activeTab === 'rating' && <h2 className="text-3xl font-bold text-gray-400">Сторінка "Рейтинг" (В розробці)</h2>}
-            {activeTab === 'mycats' && <h2 className="text-3xl font-bold text-gray-400">Сторінка "Мої котики" (В розробці)</h2>}
-            {activeTab === 'profile' && <h2 className="text-3xl font-bold text-gray-400">Сторінка "Профіль" (В розробці)</h2>}
+            {activeTab === 'explore' && <h2 className="text-3xl font-bold text-gray-400 m-auto">Сторінка "Огляд" (В розробці)</h2>}
+            {activeTab === 'rating' && <h2 className="text-3xl font-bold text-gray-400 m-auto">Сторінка "Рейтинг" (В розробці)</h2>}
+            {activeTab === 'mycats' && <h2 className="text-3xl font-bold text-gray-400 m-auto">Сторінка "Мої котики" (В розробці)</h2>}
+            {activeTab === 'profile' && <h2 className="text-3xl font-bold text-gray-400 m-auto">Сторінка "Профіль" (В розробці)</h2>}
 
         </div>
     </div>
