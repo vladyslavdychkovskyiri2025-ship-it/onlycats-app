@@ -98,6 +98,19 @@ export default function App() {
                     Рейтинг
                 </button>
 
+                {/* НОВА ВКЛАДКА: ЗАВДАННЯ */}
+                <button 
+                    onClick={() => setActiveTab('tasks')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
+                        activeTab === 'tasks' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                    Завдання
+                </button>
+
                 <button 
                     onClick={() => setActiveTab('mycats')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
@@ -160,19 +173,17 @@ export default function App() {
                             <h2 className="text-3xl font-black text-gray-900">екке, 32 р.</h2>
                             <div className="flex items-center gap-1 bg-orange-50 px-3 py-1.5 rounded-full transition-all">
                                 <span className="text-orange-500 text-lg">🔥</span>
-                                {/* Відображаємо змінну likes замість жорсткого тексту */}
                                 <span className="text-orange-600 font-bold">{likes}</span>
                             </div>
                         </div>
                         <p className="text-gray-600 text-lg mb-8">укпур</p>
                         <div className="flex gap-4">
-                            {/* Динамічна кнопка лайку */}
                             <button 
                                 onClick={handleLike}
                                 className={`flex-1 font-bold py-4 rounded-2xl transition-all shadow-lg ${
                                     hasLiked 
-                                    ? 'bg-purple-50 text-[#bf04ff] border-2 border-purple-200 shadow-none' // Стан, коли вже лайкнуто
-                                    : 'bg-[#bf04ff] hover:bg-[#a103d8] text-white border-2 border-[#bf04ff] shadow-purple-500/30' // Звичайний стан
+                                    ? 'bg-purple-50 text-[#bf04ff] border-2 border-purple-200 shadow-none'
+                                    : 'bg-[#bf04ff] hover:bg-[#a103d8] text-white border-2 border-[#bf04ff] shadow-purple-500/30'
                                 }`}
                             >
                                 {hasLiked ? 'Підтримано 💖' : 'Підтримати'}
@@ -235,6 +246,65 @@ export default function App() {
                             </button>
                         </div>
                     </form>
+                </div>
+            )}
+
+            {/* НОВА ВКЛАДКА: ЗАВДАННЯ */}
+            {activeTab === 'tasks' && (
+                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100 w-full max-w-md">
+                    <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-2">
+                        Завдання 🏆
+                    </h2>
+
+                    <div className="space-y-4">
+                        {/* Завдання 1 */}
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 transition-colors hover:bg-gray-100">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-yellow-100 text-yellow-500 rounded-xl flex items-center justify-center text-2xl shadow-sm">
+                                    ⭐
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900">Оціни 5 котиків</h3>
+                                    <p className="text-sm font-bold text-orange-500 mt-1">+ 50 🪙</p>
+                                </div>
+                            </div>
+                            <div className="bg-white border border-gray-200 px-3 py-1.5 rounded-full text-sm font-bold text-gray-600 shadow-sm">
+                                0 / 5
+                            </div>
+                        </div>
+
+                        {/* Завдання 2 */}
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 transition-colors hover:bg-gray-100">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-purple-100 text-purple-500 rounded-xl flex items-center justify-center text-2xl shadow-sm">
+                                    📸
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900">Додай свого котика</h3>
+                                    <p className="text-sm font-bold text-orange-500 mt-1">+ 100 🪙</p>
+                                </div>
+                            </div>
+                            <div className="bg-white border border-gray-200 px-3 py-1.5 rounded-full text-sm font-bold text-gray-600 shadow-sm">
+                                0 / 1
+                            </div>
+                        </div>
+
+                        {/* Завдання 3 */}
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100 transition-colors hover:bg-gray-100">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-blue-100 text-blue-500 rounded-xl flex items-center justify-center text-2xl shadow-sm">
+                                    📅
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900">Зайди 3 дні підряд</h3>
+                                    <p className="text-sm font-bold text-orange-500 mt-1">+ 200 🪙</p>
+                                </div>
+                            </div>
+                            <div className="bg-white border border-gray-200 px-3 py-1.5 rounded-full text-sm font-bold text-gray-600 shadow-sm">
+                                1 / 3
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
