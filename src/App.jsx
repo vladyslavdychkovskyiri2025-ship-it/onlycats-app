@@ -1,44 +1,127 @@
-import { useState, useEffect } from 'react';
+ import { useState, useEffect } from 'react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
-  const [authMode, setAuthMode] = useState('login'); 
+  const [authMode, setAuthMode] = useState('login');
 
-  // Стан для лайків (наприклад, у котика вже було 2 лайки від інших)
-  const [likes, setLikes] = useState(2); 
+  const [likes, setLikes] = useState(0);
   const [hasLiked, setHasLiked] = useState(false);
 
-  // Перевіряємо локальну пам'ять пристрою під час завантаження сторінки
+  // Endpoints configuration
+  const CAT_ID = 1;
+  const ENDPOINT_GET_LIKES = `https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod/likes/${CAT_ID}`;
+  const ENDPOINT_POST_LIKE = `https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod/likes/`;
+  const ENDPOINT_DELETE_LIKE = `https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod/likes/${CAT_ID}`;
+
+  // Fetch initial likes on component mount
   useEffect(() => {
+    const fetchLikes = async () => {
+      try {
+        const response = await fetch(ENDPOINT_GET_LIKES);
+
+        // Handle 404 gracefully (no likes exist yet)
+        if (!response.ok) {
+            setLikes(0);
+            return;
+        }
+
+        const data = await response.json();
+
+        // Safely parse likes to prevent NaN issues
+        if (data !== undefined && data !== null) {
+          let newLikes = 0;
+          if (typeof data === 'number') {
+            newLikes = data;
+          } else if (data.likes_count !== undefined) {
+            newLikes = Number(data.likes_count);
+          } else if (data.likes !== undefined) {
+            newLikes = Number(data.likes);
+          } else {
+            newLikes = Number(data);
+          }
+          setLikes(isNaN(newLikes) ? 0 : newLikes);
+        }
+      } catch (error) {
+        console.error('Fetch error:', error);
+        setLikes(0);
+      }
+    };
+
+    fetchLikes();
+
+    // Check local storage for optimistic UI state
     const alreadyLiked = localStorage.getItem('liked_current_cat') === 'true';
     if (alreadyLiked) {
       setHasLiked(true);
-      setLikes(3); // Базові 2 лайки + 1 лайк з цього пристрою
     }
   }, []);
 
-  // Функція обробки кліку на кнопку "Підтримати"
-  const handleLike = () => {
-    if (!hasLiked) {
-      // Ставимо лайк
-      setLikes(prev => prev + 1);
-      setHasLiked(true);
-      localStorage.setItem('liked_current_cat', 'true'); // Зберігаємо в браузер
+  // Handle the like toggle functionality
+  const handleLike = async () => {
+    // 1. Optimistic UI update (with negative value protection)
+    const isLikingNow = !hasLiked;
+    setHasLiked(isLikingNow);
+    setLikes(prev => isLikingNow ? prev + 1 : Math.max(0, prev - 1));
+
+    // Update persistence
+    if (isLikingNow) {
+      localStorage.setItem('liked_current_cat', 'true');
     } else {
-      // Забираємо лайк
-      setLikes(prev => prev - 1);
-      setHasLiked(false);
-      localStorage.removeItem('liked_current_cat'); // Видаляємо з браузера
+      localStorage.removeItem('liked_current_cat');
+    }
+
+    // 2. Network request payload
+    try {
+      let response;
+
+      if (isLikingNow) {
+        // POST request to create a like
+        response = await fetch(ENDPOINT_POST_LIKE, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            post_id: CAT_ID
+          }),
+        });
+      } else {
+        // DELETE request to remove a like
+        response = await fetch(ENDPOINT_DELETE_LIKE, {
+          method: 'DELETE',
+        });
+      }
+
+      // Handle server response errors
+      if (!response.ok) {
+        // If DELETE returns 404, it means the like is already gone. Treat as success.
+        if (!isLikingNow && response.status === 404) {
+          console.log('Like was already removed from the server.');
+        } else {
+          throw new Error('Server returned an error');
+        }
+      }
+
+    } catch (error) {
+      console.error('Failed to sync like with server:', error);
+
+      // 3. Rollback state if network fails
+      alert('Не вдалося зберегти лайк на сервері. Перевірте з\'єднання.');
+      setHasLiked(!isLikingNow);
+      setLikes(prev => !isLikingNow ? prev + 1 : Math.max(0, prev - 1));
+
+      if (!isLikingNow) {
+        localStorage.setItem('liked_current_cat', 'true');
+      } else {
+        localStorage.removeItem('liked_current_cat');
+      }
     }
   };
 
   return (
     <div className="flex h-screen bg-[#f4f4f5] font-sans">
-
-        {/* БІЧНА ПАНЕЛЬ (Sidebar) */}
+        {/* Sidebar */}
         <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-            
-            {/* Логотип */}
             <div className="p-6 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full border-4 border-[#bf04ff] flex items-center justify-center">
                     <div className="w-3 h-3 bg-[#bf04ff] rounded-full"></div>
@@ -46,9 +129,8 @@ export default function App() {
                 <h1 className="text-2xl font-black text-gray-900 tracking-tight">OnlyCats</h1>
             </div>
 
-            {/* Кнопка "Додати котика" */}
             <div className="px-4 mb-6">
-                <button 
+                <button
                     onClick={() => setActiveTab('addCat')}
                     className="w-full bg-[#bf04ff] hover:bg-[#a103d8] text-white font-bold py-3 px-4 rounded-2xl flex items-center justify-center gap-2 transition-colors"
                 >
@@ -59,9 +141,8 @@ export default function App() {
                 </button>
             </div>
 
-            {/* НАВІГАЦІЯ */}
             <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
-                <button 
+                <button
                     onClick={() => setActiveTab('home')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
                         activeTab === 'home' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
@@ -72,8 +153,8 @@ export default function App() {
                     </svg>
                     Головна
                 </button>
-                
-                <button 
+
+                <button
                     onClick={() => setActiveTab('explore')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
                         activeTab === 'explore' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
@@ -86,7 +167,7 @@ export default function App() {
                     Огляд
                 </button>
 
-                <button 
+                <button
                     onClick={() => setActiveTab('rating')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
                         activeTab === 'rating' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
@@ -98,7 +179,7 @@ export default function App() {
                     Рейтинг
                 </button>
 
-                <button 
+                <button
                     onClick={() => setActiveTab('mycats')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
                         activeTab === 'mycats' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
@@ -110,7 +191,7 @@ export default function App() {
                     Мої котики
                 </button>
 
-                <button 
+                <button
                     onClick={() => setActiveTab('profile')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
                         activeTab === 'profile' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
@@ -123,9 +204,8 @@ export default function App() {
                 </button>
             </nav>
 
-            {/* НИЖНІЙ БЛОК: РЕЄСТРАЦІЯ / АВТОРИЗАЦІЯ */}
             <div className="p-4 border-t border-gray-100">
-                <button 
+                <button
                     onClick={() => {
                         setActiveTab('auth');
                         setAuthMode('register');
@@ -134,7 +214,7 @@ export default function App() {
                 >
                     Зареєструватися
                 </button>
-                <button 
+                <button
                     onClick={() => {
                         setActiveTab('auth');
                         setAuthMode('login');
@@ -146,10 +226,9 @@ export default function App() {
             </div>
         </div>
 
-        {/* ГОЛОВНА ЗОНА */}
+        {/* Main Content Area */}
         <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
-            
-            {/* Головна - Картка котика */}
+
             {activeTab === 'home' && (
                 <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 w-full max-w-[420px] overflow-hidden flex flex-col">
                     <div className="h-[400px] w-full bg-gray-100 relative">
@@ -157,28 +236,26 @@ export default function App() {
                     </div>
                     <div className="p-6">
                         <div className="flex items-center justify-between mb-2">
-                            <h2 className="text-3xl font-black text-gray-900">екке, 32 р.</h2>
+                            <h2 className="text-3xl font-black text-gray-900">Мурзік, 2 р.</h2>
                             <div className="flex items-center gap-1 bg-orange-50 px-3 py-1.5 rounded-full transition-all">
                                 <span className="text-orange-500 text-lg">🔥</span>
-                                {/* Відображаємо змінну likes замість жорсткого тексту */}
                                 <span className="text-orange-600 font-bold">{likes}</span>
                             </div>
                         </div>
-                        <p className="text-gray-600 text-lg mb-8">укпур</p>
+                        <p className="text-gray-600 text-lg mb-8">Любить спати на клавіатурі.</p>
                         <div className="flex gap-4">
-                            {/* Динамічна кнопка лайку */}
-                            <button 
+                            <button
                                 onClick={handleLike}
                                 className={`flex-1 font-bold py-4 rounded-2xl transition-all shadow-lg ${
-                                    hasLiked 
-                                    ? 'bg-purple-50 text-[#bf04ff] border-2 border-purple-200 shadow-none' // Стан, коли вже лайкнуто
-                                    : 'bg-[#bf04ff] hover:bg-[#a103d8] text-white border-2 border-[#bf04ff] shadow-purple-500/30' // Звичайний стан
+                                    hasLiked
+                                    ? 'bg-purple-50 text-[#bf04ff] border-2 border-purple-200 shadow-none'
+                                    : 'bg-[#bf04ff] hover:bg-[#a103d8] text-white border-2 border-[#bf04ff] shadow-purple-500/30'
                                 }`}
                             >
                                 {hasLiked ? 'Підтримано 💖' : 'Підтримати'}
                             </button>
                             <button className="flex-1 bg-white border-2 border-gray-100 hover:border-gray-200 text-gray-900 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-colors">
-                                Наступний 
+                                Наступний
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
                                 </svg>
@@ -188,7 +265,6 @@ export default function App() {
                 </div>
             )}
 
-            {/* Вкладка: ДОДАТИ КОТИКА */}
             {activeTab === 'addCat' && (
                 <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100 w-full max-w-md">
                     <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-2">
@@ -197,38 +273,17 @@ export default function App() {
 
                     <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
                         <div>
-                            <input 
-                                type="text" 
-                                placeholder="Ім'я котика (напр. Барсік)" 
-                                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
-                            />
+                            <input type="text" placeholder="Ім'я котика (напр. Барсік)" className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
                         </div>
-                        
                         <div>
-                            <input 
-                                type="number" 
-                                placeholder="Вік (років)" 
-                                min="0"
-                                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
-                            />
+                            <input type="number" placeholder="Вік (років)" min="0" className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
                         </div>
-
                         <div>
-                            <input 
-                                type="url" 
-                                placeholder="Посилання на фото (URL)" 
-                                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
-                            />
+                            <input type="url" placeholder="Посилання на фото (URL)" className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
                         </div>
-
                         <div>
-                            <textarea 
-                                placeholder="Розкажи трохи про нього..." 
-                                rows="3"
-                                className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors resize-none"
-                            ></textarea>
+                            <textarea placeholder="Розкажи трохи про нього..." rows="3" className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors resize-none"></textarea>
                         </div>
-                        
                         <div className="pt-2">
                             <button className="w-full bg-[#bf04ff] hover:bg-[#a103d8] text-white font-bold py-4 rounded-xl transition-colors shadow-lg shadow-purple-500/30">
                                 Опублікувати 🐾
@@ -238,7 +293,6 @@ export default function App() {
                 </div>
             )}
 
-            {/* Вкладка Реєстрації/Авторизації */}
             {activeTab === 'auth' && (
                 <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100 w-full max-w-md">
                     <div className="flex justify-center mb-6">
@@ -246,7 +300,7 @@ export default function App() {
                             <div className="w-4 h-4 bg-[#bf04ff] rounded-full"></div>
                         </div>
                     </div>
-                    
+
                     <h2 className="text-2xl font-black text-center text-gray-900 mb-2">
                         {authMode === 'login' ? 'З поверненням! 🐾' : 'Створити акаунт 🐾'}
                     </h2>
@@ -258,56 +312,33 @@ export default function App() {
                         {authMode === 'register' && (
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2">Ім'я / Нікнейм</label>
-                                <input 
-                                    type="text" 
-                                    placeholder="Мурзик" 
-                                    className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
-                                />
+                                <input type="text" placeholder="Мурзик" className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
                             </div>
                         )}
-
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Email</label>
-                            <input 
-                                type="email" 
-                                placeholder="yourcat@email.com" 
-                                className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
-                            />
+                            <input type="email" placeholder="yourcat@email.com" className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Пароль</label>
-                            <input 
-                                type="password" 
-                                placeholder="••••••••" 
-                                className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
-                            />
+                            <input type="password" placeholder="••••••••" className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
                         </div>
-                        
                         <div className="pt-2">
                             <button className="w-full bg-[#bf04ff] hover:bg-[#a103d8] text-white font-bold py-4 rounded-xl transition-colors shadow-lg shadow-purple-500/30 mb-4">
                                 {authMode === 'login' ? 'Увійти' : 'Зареєструватися'}
                             </button>
-                            
                             <p className="text-center text-gray-500 font-medium">
                                 {authMode === 'login' ? (
                                     <>
                                         Немає акаунту?{' '}
-                                        <button 
-                                            type="button"
-                                            onClick={() => setAuthMode('register')} 
-                                            className="text-[#bf04ff] hover:underline"
-                                        >
+                                        <button type="button" onClick={() => setAuthMode('register')} className="text-[#bf04ff] hover:underline">
                                             Зареєструватися
                                         </button>
                                     </>
                                 ) : (
                                     <>
                                         Вже є акаунт?{' '}
-                                        <button 
-                                            type="button"
-                                            onClick={() => setAuthMode('login')} 
-                                            className="text-[#bf04ff] hover:underline"
-                                        >
+                                        <button type="button" onClick={() => setAuthMode('login')} className="text-[#bf04ff] hover:underline">
                                             Увійти
                                         </button>
                                     </>
@@ -318,12 +349,11 @@ export default function App() {
                 </div>
             )}
 
-            {/* Заглушки */}
+            {/* Placeholders */}
             {activeTab === 'explore' && <h2 className="text-3xl font-bold text-gray-400">Сторінка "Огляд" (В розробці)</h2>}
             {activeTab === 'rating' && <h2 className="text-3xl font-bold text-gray-400">Сторінка "Рейтинг" (В розробці)</h2>}
             {activeTab === 'mycats' && <h2 className="text-3xl font-bold text-gray-400">Сторінка "Мої котики" (В розробці)</h2>}
             {activeTab === 'profile' && <h2 className="text-3xl font-bold text-gray-400">Сторінка "Профіль" (В розробці)</h2>}
-
         </div>
     </div>
   );

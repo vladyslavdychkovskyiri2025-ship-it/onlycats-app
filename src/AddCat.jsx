@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { db, storage } from "./firebase";
-import { collection, addDoc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
+// Firebase нам більше не потрібен, тому ми прибрали його імпорти!
 
 export default function AddCat({ onAdded }) {
   const [name, setName] = useState('');
@@ -10,28 +9,49 @@ export default function AddCat({ onAdded }) {
   const [imageFile, setImageFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Вказуємо адресу вашого бекенду для постів
+  const ENDPOINT_CREATE_POST = 'https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod/posts/';
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!imageFile) return alert("Будь ласка, обери фото!");
-    
+
     setLoading(true);
     try {
-      // 1. Завантажуємо фото в Storage
-      const storageRef = ref(storage, `cats/${Date.now()}_${imageFile.name}`);
-      await uploadBytes(storageRef, imageFile);
-      const imageUrl = await getDownloadURL(storageRef);
+      // 1. Створюємо об'єкт FormData (це як віртуальна посилка для файлів та тексту)
+      const formData = new FormData();
 
-      // 2. Зберігаємо дані в Firestore
-      await addDoc(collection(db, "cats"), {
-        name,
-        age: parseInt(age),
-        breed,
-        imageUrl: imageUrl, // Тепер тут посилання на справжнє фото
-        likes: 0
+      // 2. Пакуємо дані так, як цього очікує FastAPI:
+      // - title (передаємо ім'я)
+      formData.append('title', name);
+      // - content (об'єднуємо вік та опис)
+      formData.append('content', `${age} р. ${breed}`);
+      // - image (сам файл фотографії)
+      formData.append('image', imageFile);
+
+      // 3. Відправляємо запит на НАШ бекенд
+      const response = await fetch(ENDPOINT_CREATE_POST, {
+        method: 'POST',
+        body: formData,
+        // Важливо: при відправці FormData НЕ треба вказувати 'Content-Type'.
+        // Браузер сам зрозуміє, що це файл, і поставить правильні заголовки.
       });
 
+      if (!response.ok) {
+        throw new Error('Помилка сервера при створенні поста');
+      }
+
       alert("Котика успішно виставлено! 🐾");
-      onAdded();
+
+      // Очищаємо форму
+      setName('');
+      setAge('');
+      setBreed('');
+      setImageFile(null);
+
+      // Викликаємо функцію, щоб повернутися на головну сторінку
+      if (onAdded) onAdded();
+
     } catch (error) {
       console.error("Помилка:", error);
       alert("Щось пішло не так при завантаженні.");
@@ -46,18 +66,37 @@ export default function AddCat({ onAdded }) {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Поле для вибору фото */}
         <div className="flex flex-col items-center justify-center border-2 border-dashed border-purple-100 rounded-2xl p-4 bg-purple-50/30">
-          <input 
-            type="file" 
-            accept="image/*" 
+          <input
+            type="file"
+            accept="image/*"
             onChange={(e) => setImageFile(e.target.files[0])}
             className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200"
           />
           {imageFile && <p className="mt-2 text-xs text-purple-600 font-medium">Обрано: {imageFile.name}</p>}
         </div>
 
-        <input placeholder="Ім'я котика" className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-purple-500 transition" value={name} onChange={e => setName(e.target.value)} required />
-        <input placeholder="Вік" type="number" className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-purple-500 transition" value={age} onChange={e => setAge(e.target.value)} required />
-        <input placeholder="Порода або короткий опис" className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-purple-500 transition" value={breed} onChange={e => setBreed(e.target.value)} required />
+        <input
+            placeholder="Ім'я котика"
+            className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-purple-500 transition"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            required
+        />
+        <input
+            placeholder="Вік (років)"
+            type="number"
+            className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-purple-500 transition"
+            value={age}
+            onChange={e => setAge(e.target.value)}
+            required
+        />
+        <input
+            placeholder="Порода або короткий опис"
+            className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-purple-500 transition"
+            value={breed}
+            onChange={e => setBreed(e.target.value)}
+            required
+        />
         
         <button 
           type="submit" 
