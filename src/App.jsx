@@ -5,22 +5,19 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [authMode, setAuthMode] = useState('login');
 
-  // --- НОВІ СТЕЙТИ ДЛЯ АВТОРИЗАЦІЇ ---
+  // --- СТЕЙТИ ДЛЯ АВТОРИЗАЦІЇ ---
   const [authName, setAuthName] = useState('');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
-  // Перевіряємо, чи є в браузері збережений токен (якщо є - ми залогінені)
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
+
+  const BASE_URL = 'https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod';
 
   // --- ФУНКЦІЇ АВТОРИЗАЦІЇ ---
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
 
-    // Визначаємо адресу залежно від режиму
-    const BASE_URL = 'https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod';
     const endpoint = authMode === 'login' ? `${BASE_URL}/login` : `${BASE_URL}/register`;
-
-    // Формуємо посилку. При логіні ім'я не треба, при реєстрації - треба.
     const payload = authMode === 'login'
         ? { email: authEmail, password: authPassword }
         : { username: authName, email: authEmail, password: authPassword };
@@ -38,7 +35,6 @@ export default function App() {
 
       const data = await response.json();
 
-      // Зберігаємо токен-пропуск у браузері.
       if (data.access_token) {
           localStorage.setItem('token', data.access_token);
       } else {
@@ -48,7 +44,6 @@ export default function App() {
       setIsLoggedIn(true);
       alert(authMode === 'login' ? 'Ви успішно увійшли! 🐾' : 'Реєстрація успішна! 🐾');
 
-      // Очищаємо форму і кидаємо на головну
       setAuthEmail(''); setAuthPassword(''); setAuthName('');
       setActiveTab('home');
 
@@ -65,14 +60,13 @@ export default function App() {
   };
 
   // --- СТАН ДЛЯ ЛАЙКІВ ---
-  const [likes, setLikes] = useState(2);
+  const [likes, setLikes] = useState(0);
   const [hasLiked, setHasLiked] = useState(false);
 
-  // EndPoint
   const CAT_ID = 1;
-  const ENDPOINT_GET_LIKES = `https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod/likes/${CAT_ID}`;
-  const ENDPOINT_POST_LIKE = `https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod/likes/`;
-  const ENDPOINT_DELETE_LIKE = `https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod/likes/${CAT_ID}`;
+  const ENDPOINT_GET_LIKES = `${BASE_URL}/likes/${CAT_ID}`;
+  const ENDPOINT_POST_LIKE = `${BASE_URL}/likes/`;
+  const ENDPOINT_DELETE_LIKE = `${BASE_URL}/likes/${CAT_ID}`;
 
   // --- СТАН ДЛЯ КОМЕНТАРІВ ---
   const [comments, setComments] = useState([
@@ -80,16 +74,20 @@ export default function App() {
     { id: 2, text: "Обожнюю рудих котів, просто супер.", author: "Максим", isMine: false }
   ]);
   const [newComment, setNewComment] = useState('');
-
-  // Стан для редагування
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editCommentText, setEditCommentText] = useState('');
 
-  // Завантаження лайків при відкритті сторінки
+  // --- ЗАВАНТАЖЕННЯ ЛАЙКІВ (Із перевіркою токена) ---
   useEffect(() => {
     const fetchLikes = async () => {
       try {
-        const response = await fetch(ENDPOINT_GET_LIKES);
+        const token = localStorage.getItem('token');
+        const headers = {};
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(ENDPOINT_GET_LIKES, { headers });
 
         if (!response.ok) {
             setLikes(0);
@@ -98,21 +96,21 @@ export default function App() {
 
         const data = await response.json();
 
-        if (data !== undefined && data !== null) {
+        // 1. Якщо сервер повернув масив (список)
+        if (Array.isArray(data)) {
+            setLikes(data.length); // Кількість лайків = довжина списку
+        }
+        // 2. Старий варіант про всяк випадок (якщо бекендер колись змінить логіку)
+        else if (data !== undefined && data !== null) {
           let newLikes = 0;
-          if (typeof data === 'number') {
-            newLikes = data;
-          } else if (data.likes_count !== undefined) {
-            newLikes = Number(data.likes_count);
-          } else if (data.likes !== undefined) {
-            newLikes = Number(data.likes);
-          } else {
-            newLikes = Number(data);
-          }
+          if (typeof data === 'number') newLikes = data;
+          else if (data.likes_count !== undefined) newLikes = Number(data.likes_count);
+          else if (data.likes !== undefined) newLikes = Number(data.likes);
+          else newLikes = Number(data);
           setLikes(isNaN(newLikes) ? 0 : newLikes);
         }
       } catch (error) {
-        console.error('Помилка завантаження лайків з сервера:', error);
+        console.error('Помилка завантаження лайків:', error);
         setLikes(0);
       }
     };
@@ -125,34 +123,37 @@ export default function App() {
     }
   }, []);
 
-  // Головна функція лайку
+  // --- ГОЛОВНА ФУНКЦІЯ ЛАЙКУ (Із відправкою токена) ---
   const handleLike = async () => {
     const isLikingNow = !hasLiked;
     setHasLiked(isLikingNow);
     setLikes(prev => isLikingNow ? prev + 1 : Math.max(0, prev - 1));
 
-    if (isLikingNow) {
-      localStorage.setItem('liked_current_cat', 'true');
-    } else {
-      localStorage.removeItem('liked_current_cat');
-    }
+    if (isLikingNow) localStorage.setItem('liked_current_cat', 'true');
+    else localStorage.removeItem('liked_current_cat');
 
     try {
       let response;
+      const token = localStorage.getItem('token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+      }
 
       if (isLikingNow) {
         response = await fetch(ENDPOINT_POST_LIKE, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify({ post_id: CAT_ID }),
         });
       } else {
-        response = await fetch(ENDPOINT_DELETE_LIKE, { method: 'DELETE' });
+        response = await fetch(ENDPOINT_DELETE_LIKE, {
+            method: 'DELETE',
+            headers: headers
+        });
       }
 
-      if (!response.ok) {
-        throw new Error('Помилка сервера при збереженні лайку');
-      }
+      if (!response.ok) throw new Error('Помилка сервера при збереженні лайку');
 
     } catch (error) {
       console.error('Не вдалося відправити лайк на сервер:', error);
@@ -160,11 +161,8 @@ export default function App() {
       setHasLiked(!isLikingNow);
       setLikes(prev => !isLikingNow ? prev + 1 : Math.max(0, prev - 1));
 
-      if (!isLikingNow) {
-        localStorage.setItem('liked_current_cat', 'true');
-      } else {
-        localStorage.removeItem('liked_current_cat');
-      }
+      if (!isLikingNow) localStorage.setItem('liked_current_cat', 'true');
+      else localStorage.removeItem('liked_current_cat');
     }
   };
 
@@ -393,7 +391,7 @@ export default function App() {
                                                 {comment.isMine && <span className="text-xs bg-[#bf04ff] text-white px-2 py-0.5 rounded-full">Автор</span>}
                                             </div>
 
-                                            {/* Кнопки Дій (Редагувати/Видалити) тільки для власних коментарів */}
+                                            {/* Кнопки Дій */}
                                             {comment.isMine && editingCommentId !== comment.id && (
                                                 <div className="flex items-center gap-3">
                                                     <button onClick={() => startEditing(comment)} className="text-gray-400 hover:text-[#bf04ff] transition-colors" title="Редагувати">
@@ -452,11 +450,10 @@ export default function App() {
                             </button>
                         </form>
                     </div>
-
                 </div>
             )}
 
-            {/* Вкладка: ДОДАТИ КОТИКА (Тепер працює через AddCat.jsx) */}
+            {/* Вкладка: ДОДАТИ КОТИКА */}
             {activeTab === 'addCat' && (
                 <div className="w-full max-w-md m-auto">
                     <AddCat onAdded={() => {
