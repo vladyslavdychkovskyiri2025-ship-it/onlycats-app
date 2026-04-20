@@ -1,14 +1,74 @@
+import AddCat from './AddCat';
 import { useState, useEffect } from 'react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
-  const [authMode, setAuthMode] = useState('login'); 
+  const [authMode, setAuthMode] = useState('login');
+
+  // --- НОВІ СТЕЙТИ ДЛЯ АВТОРИЗАЦІЇ ---
+  const [authName, setAuthName] = useState('');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  // Перевіряємо, чи є в браузері збережений токен (якщо є - ми залогінені)
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
+
+  // --- ФУНКЦІЇ АВТОРИЗАЦІЇ ---
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+
+    // Визначаємо адресу залежно від режиму
+    const BASE_URL = 'https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod';
+    const endpoint = authMode === 'login' ? `${BASE_URL}/login` : `${BASE_URL}/register`;
+
+    // Формуємо посилку. При логіні ім'я не треба, при реєстрації - треба.
+    const payload = authMode === 'login'
+        ? { email: authEmail, password: authPassword }
+        : { username: authName, email: authEmail, password: authPassword };
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error('Неправильні дані або користувач вже існує');
+      }
+
+      const data = await response.json();
+
+      // Зберігаємо токен-пропуск у браузері.
+      if (data.access_token) {
+          localStorage.setItem('token', data.access_token);
+      } else {
+          localStorage.setItem('token', JSON.stringify(data));
+      }
+
+      setIsLoggedIn(true);
+      alert(authMode === 'login' ? 'Ви успішно увійшли! 🐾' : 'Реєстрація успішна! 🐾');
+
+      // Очищаємо форму і кидаємо на головну
+      setAuthEmail(''); setAuthPassword(''); setAuthName('');
+      setActiveTab('home');
+
+    } catch (error) {
+      console.error('Auth error:', error);
+      alert(error.message);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsLoggedIn(false);
+    setActiveTab('home');
+  };
 
   // --- СТАН ДЛЯ ЛАЙКІВ ---
   const [likes, setLikes] = useState(2);
   const [hasLiked, setHasLiked] = useState(false);
 
-  // AndPoint
+  // EndPoint
   const CAT_ID = 1;
   const ENDPOINT_GET_LIKES = `https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod/likes/${CAT_ID}`;
   const ENDPOINT_POST_LIKE = `https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod/likes/`;
@@ -25,63 +85,12 @@ export default function App() {
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editCommentText, setEditCommentText] = useState('');
 
-  // Перевіряємо локальну пам'ять пристрою під час завантаження сторінки
-  useEffect(() => {
-    const alreadyLiked = localStorage.getItem('liked_current_cat') === 'true';
-    if (alreadyLiked) {
-      setHasLiked(true);
-      setLikes(3);
-    }
-  }, []);
-// Завантаження лайків при відкритті сторінки
-  useEffect(() => {
-    const fetchLikes = async () => {
-      try {
-        const response = await fetch(ENDPOINT_GET_LIKES);
-
-        // Якщо сервер каже "Не знайдено" (404), значить лайків 0
-        if (!response.ok) {
-            setLikes(0);
-            return;
-        }
-
-        const data = await response.json();
-
-        // Розумний парсинг лайків (захист від NaN)
-        if (data !== undefined && data !== null) {
-          let newLikes = 0;
-          if (typeof data === 'number') {
-            newLikes = data;
-          } else if (data.likes_count !== undefined) {
-            newLikes = Number(data.likes_count);
-          } else if (data.likes !== undefined) {
-            newLikes = Number(data.likes);
-          } else {
-            newLikes = Number(data);
-          }
-          setLikes(isNaN(newLikes) ? 0 : newLikes);
-        }
-      } catch (error) {
-        console.error('Помилка завантаження лайків з сервера:', error);
-        setLikes(0);
-      }
-    };
-
-    fetchLikes();
-
-    const alreadyLiked = localStorage.getItem('liked_current_cat') === 'true';
-    if (alreadyLiked) {
-      setHasLiked(true);
-    }
-  }, []);
-  // --- ФУНКЦІЇ ДЛЯ ЛАЙКІВ ---
   // Завантаження лайків при відкритті сторінки
   useEffect(() => {
     const fetchLikes = async () => {
       try {
         const response = await fetch(ENDPOINT_GET_LIKES);
 
-        // Якщо сервер каже "Не знайдено" (404), значить лайків 0
         if (!response.ok) {
             setLikes(0);
             return;
@@ -89,7 +98,6 @@ export default function App() {
 
         const data = await response.json();
 
-        // Розумний парсинг лайків (захист від NaN)
         if (data !== undefined && data !== null) {
           let newLikes = 0;
           if (typeof data === 'number') {
@@ -119,7 +127,6 @@ export default function App() {
 
   // Головна функція лайку
   const handleLike = async () => {
-    // 1. Оптимістичне оновлення UI (з захистом від мінусів)
     const isLikingNow = !hasLiked;
     setHasLiked(isLikingNow);
     setLikes(prev => isLikingNow ? prev + 1 : Math.max(0, prev - 1));
@@ -130,24 +137,17 @@ export default function App() {
       localStorage.removeItem('liked_current_cat');
     }
 
-    // 2. Відправляємо дані на БЕКЕНД
     try {
       let response;
 
       if (isLikingNow) {
         response = await fetch(ENDPOINT_POST_LIKE, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            post_id: CAT_ID
-          }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: CAT_ID }),
         });
       } else {
-        response = await fetch(ENDPOINT_DELETE_LIKE, {
-          method: 'DELETE',
-        });
+        response = await fetch(ENDPOINT_DELETE_LIKE, { method: 'DELETE' });
       }
 
       if (!response.ok) {
@@ -156,8 +156,6 @@ export default function App() {
 
     } catch (error) {
       console.error('Не вдалося відправити лайк на сервер:', error);
-
-      // 3. Відкат змін (теж із захистом від мінусів)
       alert('Не вдалося зберегти лайк на сервері. Перевірте з\'єднання.');
       setHasLiked(!isLikingNow);
       setLikes(prev => !isLikingNow ? prev + 1 : Math.max(0, prev - 1));
@@ -174,20 +172,19 @@ export default function App() {
   const handleAddComment = (e) => {
     e.preventDefault();
     if (!newComment.trim()) return;
-    
+
     const comment = {
       id: Date.now(),
       text: newComment,
-      author: "Ви (Гість)", // В реальному житті тут буде нікнейм авторизованого юзера
-      isMine: true // Позначаємо, що це наш коментар, щоб ми могли його видаляти/редагувати
+      author: "Ви (Гість)",
+      isMine: true
     };
-    
+
     setComments([...comments, comment]);
     setNewComment('');
   };
 
   const handleDeleteComment = (id) => {
-    // Форма підтвердження видалення (вбудована у браузер)
     if (window.confirm("Ви точно хочете видалити цей коментар?")) {
       setComments(comments.filter(c => c.id !== id));
     }
@@ -200,7 +197,7 @@ export default function App() {
 
   const handleSaveEdit = () => {
     if (!editCommentText.trim()) return;
-    setComments(comments.map(c => 
+    setComments(comments.map(c =>
       c.id === editingCommentId ? { ...c, text: editCommentText } : c
     ));
     setEditingCommentId(null);
@@ -227,7 +224,7 @@ export default function App() {
 
             {/* Кнопка "Додати котика" */}
             <div className="px-4 mb-6">
-                <button 
+                <button
                     onClick={() => setActiveTab('addCat')}
                     className="w-full bg-[#bf04ff] hover:bg-[#a103d8] text-white font-bold py-3 px-4 rounded-2xl flex items-center justify-center gap-2 transition-colors"
                 >
@@ -240,7 +237,7 @@ export default function App() {
 
             {/* НАВІГАЦІЯ */}
             <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
-                <button 
+                <button
                     onClick={() => setActiveTab('home')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
                         activeTab === 'home' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
@@ -251,8 +248,8 @@ export default function App() {
                     </svg>
                     Головна
                 </button>
-                
-                <button 
+
+                <button
                     onClick={() => setActiveTab('explore')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
                         activeTab === 'explore' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
@@ -265,7 +262,7 @@ export default function App() {
                     Огляд
                 </button>
 
-                <button 
+                <button
                     onClick={() => setActiveTab('rating')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
                         activeTab === 'rating' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
@@ -277,7 +274,7 @@ export default function App() {
                     Рейтинг
                 </button>
 
-                <button 
+                <button
                     onClick={() => setActiveTab('mycats')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
                         activeTab === 'mycats' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
@@ -289,7 +286,7 @@ export default function App() {
                     Мої котики
                 </button>
 
-                <button 
+                <button
                     onClick={() => setActiveTab('profile')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
                         activeTab === 'profile' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
@@ -302,36 +299,41 @@ export default function App() {
                 </button>
             </nav>
 
-            {/* НИЖНІЙ БЛОК: РЕЄСТРАЦІЯ / АВТОРИЗАЦІЯ */}
+            {/* НИЖНІЙ БЛОК: РЕЄСТРАЦІЯ / АВТОРИЗАЦІЯ / ВИХІД */}
             <div className="p-4 border-t border-gray-100">
-                <button 
-                    onClick={() => {
-                        setActiveTab('auth');
-                        setAuthMode('register');
-                    }}
-                    className="w-full bg-gray-900 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-xl transition-colors mb-2"
-                >
-                    Зареєструватися
-                </button>
-                <button 
-                    onClick={() => {
-                        setActiveTab('auth');
-                        setAuthMode('login');
-                    }}
-                    className="w-full bg-white border border-gray-200 hover:border-[#bf04ff] text-gray-700 hover:text-[#bf04ff] font-bold py-3 px-4 rounded-xl transition-colors"
-                >
-                    Увійти
-                </button>
+                {isLoggedIn ? (
+                    <button
+                        onClick={handleLogout}
+                        className="w-full bg-red-50 text-red-600 hover:bg-red-100 font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                    >
+                        Вийти з акаунта
+                    </button>
+                ) : (
+                    <>
+                        <button
+                            onClick={() => { setActiveTab('auth'); setAuthMode('register'); }}
+                            className="w-full bg-gray-900 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-xl transition-colors mb-2"
+                        >
+                            Зареєструватися
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('auth'); setAuthMode('login'); }}
+                            className="w-full bg-white border border-gray-200 hover:border-[#bf04ff] text-gray-700 hover:text-[#bf04ff] font-bold py-3 px-4 rounded-xl transition-colors"
+                        >
+                            Увійти
+                        </button>
+                    </>
+                )}
             </div>
         </div>
 
         {/* ГОЛОВНА ЗОНА */}
         <div className="flex-1 flex flex-col items-center p-6 md:p-8 overflow-y-auto w-full">
-            
+
             {/* Головна - Картка котика + Коментарі */}
             {activeTab === 'home' && (
                 <div className="w-full max-w-[420px] flex flex-col gap-6 pb-12 mt-auto mb-auto">
-                    
+
                     {/* Картка */}
                     <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 w-full overflow-hidden flex flex-col">
                         <div className="h-[400px] w-full bg-gray-100 relative">
@@ -347,18 +349,18 @@ export default function App() {
                             </div>
                             <p className="text-gray-600 text-lg mb-8">Любить спати на клавіатурі та їсти сметану.</p>
                             <div className="flex gap-4">
-                                <button 
+                                <button
                                     onClick={handleLike}
                                     className={`flex-1 font-bold py-4 rounded-2xl transition-all shadow-lg ${
-                                        hasLiked 
-                                        ? 'bg-purple-50 text-[#bf04ff] border-2 border-purple-200 shadow-none' 
+                                        hasLiked
+                                        ? 'bg-purple-50 text-[#bf04ff] border-2 border-purple-200 shadow-none'
                                         : 'bg-[#bf04ff] hover:bg-[#a103d8] text-white border-2 border-[#bf04ff] shadow-purple-500/30'
                                     }`}
                                 >
                                     {hasLiked ? 'Підтримано 💖' : 'Підтримати'}
                                 </button>
                                 <button className="flex-1 bg-white border-2 border-gray-100 hover:border-gray-200 text-gray-900 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-colors">
-                                    Наступний 
+                                    Наступний
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
                                     </svg>
@@ -372,7 +374,7 @@ export default function App() {
                         <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-2">
                             Коментарі <span className="text-gray-400 font-medium text-lg">({comments.length})</span>
                         </h3>
-                        
+
                         {/* Список коментарів */}
                         <div className="space-y-4 mb-6">
                             {comments.length === 0 ? (
@@ -380,7 +382,7 @@ export default function App() {
                             ) : (
                                 comments.map(comment => (
                                     <div key={comment.id} className={`p-4 rounded-2xl ${comment.isMine ? 'bg-[#fdf4ff] border border-purple-100' : 'bg-gray-50'}`}>
-                                        
+
                                         {/* Шапка коментаря */}
                                         <div className="flex justify-between items-center mb-2">
                                             <div className="flex items-center gap-2">
@@ -407,7 +409,7 @@ export default function App() {
                                         {/* Текст або Форма редагування */}
                                         {editingCommentId === comment.id ? (
                                             <div className="mt-3">
-                                                <textarea 
+                                                <textarea
                                                     value={editCommentText}
                                                     onChange={(e) => setEditCommentText(e.target.value)}
                                                     className="w-full bg-white border border-[#bf04ff] text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3 outline-none transition-colors resize-none mb-3"
@@ -432,15 +434,15 @@ export default function App() {
 
                         {/* Форма створення нового коментаря */}
                         <form onSubmit={handleAddComment} className="flex gap-2">
-                            <input 
-                                type="text" 
+                            <input
+                                type="text"
                                 value={newComment}
                                 onChange={(e) => setNewComment(e.target.value)}
-                                placeholder="Написати коментар..." 
+                                placeholder="Написати коментар..."
                                 className="flex-1 bg-gray-50 border border-gray-200 text-gray-900 rounded-2xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block px-4 py-3.5 outline-none transition-colors"
                             />
-                            <button 
-                                type="submit" 
+                            <button
+                                type="submit"
                                 disabled={!newComment.trim()}
                                 className={`flex items-center justify-center w-14 rounded-2xl transition-all ${
                                     newComment.trim() ? 'bg-[#bf04ff] hover:bg-[#a103d8] text-white shadow-lg shadow-purple-500/30 cursor-pointer' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
@@ -454,32 +456,13 @@ export default function App() {
                 </div>
             )}
 
-            {/* Вкладка: ДОДАТИ КОТИКА */}
+            {/* Вкладка: ДОДАТИ КОТИКА (Тепер працює через AddCat.jsx) */}
             {activeTab === 'addCat' && (
-                <div className="bg-white p-8 rounded-[32px] shadow-sm border border-gray-100 w-full max-w-md m-auto">
-                    <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-2">
-                        Новий котик 📸
-                    </h2>
-
-                    <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-                        <div>
-                            <input type="text" placeholder="Ім'я котика (напр. Барсік)" className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
-                        </div>
-                        <div>
-                            <input type="number" placeholder="Вік (років)" min="0" className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
-                        </div>
-                        <div>
-                            <input type="url" placeholder="Посилання на фото (URL)" className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
-                        </div>
-                        <div>
-                            <textarea placeholder="Розкажи трохи про нього..." rows="3" className="w-full bg-white border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors resize-none"></textarea>
-                        </div>
-                        <div className="pt-2">
-                            <button className="w-full bg-[#bf04ff] hover:bg-[#a103d8] text-white font-bold py-4 rounded-xl transition-colors shadow-lg shadow-purple-500/30">
-                                Опублікувати 🐾
-                            </button>
-                        </div>
-                    </form>
+                <div className="w-full max-w-md m-auto">
+                    <AddCat onAdded={() => {
+                        setActiveTab('home');
+                        window.location.reload();
+                    }} />
                 </div>
             )}
 
@@ -491,7 +474,7 @@ export default function App() {
                             <div className="w-4 h-4 bg-[#bf04ff] rounded-full"></div>
                         </div>
                     </div>
-                    
+
                     <h2 className="text-2xl font-black text-center text-gray-900 mb-2">
                         {authMode === 'login' ? 'З поверненням! 🐾' : 'Створити акаунт 🐾'}
                     </h2>
@@ -499,23 +482,44 @@ export default function App() {
                         {authMode === 'login' ? 'Увійдіть, щоб оцінювати котиків' : 'Приєднуйся до нашої пухнастої спільноти'}
                     </p>
 
-                    <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                    <form className="space-y-4" onSubmit={handleAuthSubmit}>
                         {authMode === 'register' && (
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2">Ім'я / Нікнейм</label>
-                                <input type="text" placeholder="Мурзик" className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
+                                <input
+                                    type="text"
+                                    placeholder="Мурзик"
+                                    required
+                                    value={authName}
+                                    onChange={(e) => setAuthName(e.target.value)}
+                                    className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
+                                />
                             </div>
                         )}
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Email</label>
-                            <input type="email" placeholder="yourcat@email.com" className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
+                            <input
+                                type="email"
+                                placeholder="yourcat@email.com"
+                                required
+                                value={authEmail}
+                                onChange={(e) => setAuthEmail(e.target.value)}
+                                className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Пароль</label>
-                            <input type="password" placeholder="••••••••" className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors" />
+                            <input
+                                type="password"
+                                placeholder="••••••••"
+                                required
+                                value={authPassword}
+                                onChange={(e) => setAuthPassword(e.target.value)}
+                                className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
+                            />
                         </div>
                         <div className="pt-2">
-                            <button className="w-full bg-[#bf04ff] hover:bg-[#a103d8] text-white font-bold py-4 rounded-xl transition-colors shadow-lg shadow-purple-500/30 mb-4">
+                            <button type="submit" className="w-full bg-[#bf04ff] hover:bg-[#a103d8] text-white font-bold py-4 rounded-xl transition-colors shadow-lg shadow-purple-500/30 mb-4">
                                 {authMode === 'login' ? 'Увійти' : 'Зареєструватися'}
                             </button>
                             <p className="text-center text-gray-500 font-medium">
