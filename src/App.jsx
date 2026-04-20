@@ -53,10 +53,21 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
+const handleLogout = () => {
+    // 1. Видаляємо пропуск
     localStorage.removeItem('token');
+
+    // 2. Видаляємо пам'ять про натиснуті лайки
+    localStorage.removeItem('liked_current_cat');
+    setHasLiked(false);
+
+    // 3. Змінюємо інтерфейс
     setIsLoggedIn(false);
     setActiveTab('home');
+
+    // (Опціонально) Щоб гарантовано скинути всі лічильники і стейти,
+    // найкраще просто м'яко перезавантажити сторінку:
+    window.location.reload();
   };
 
   // --- СТАН ДЛЯ ЛАЙКІВ ---
