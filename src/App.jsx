@@ -11,6 +11,10 @@ export default function App() {
   const [authPassword, setAuthPassword] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
 
+  // --- СТЕЙТИ ДЛЯ ПЛАШОК ТА СЮРПРИЗІВ ---
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSurprise, setShowSurprise] = useState(false);
+
   const BASE_URL = 'https://7fy5ddq0g2.execute-api.eu-north-1.amazonaws.com/Prod';
 
   // --- ФУНКЦІЇ АВТОРИЗАЦІЇ ---
@@ -42,10 +46,16 @@ export default function App() {
       }
 
       setIsLoggedIn(true);
-      alert(authMode === 'login' ? 'Ви успішно увійшли! 🐾' : 'Реєстрація успішна! 🐾');
 
-      setAuthEmail(''); setAuthPassword(''); setAuthName('');
-      setActiveTab('home');
+      // ПЕРЕВІРКА НА ПОШТУ КОХАНОЇ (Сюрприз без музики)
+      if (authMode === 'login' && authEmail.toLowerCase() === 'kateryna.peleshchyshyn@gmail.com') {
+          setShowSurprise(true);
+          setAuthEmail(''); setAuthPassword(''); setAuthName('');
+      } else {
+          alert(authMode === 'login' ? 'Ви успішно увійшли! 🐾' : 'Реєстрація успішна! 🐾');
+          setAuthEmail(''); setAuthPassword(''); setAuthName('');
+          setActiveTab('home');
+      }
 
     } catch (error) {
       console.error('Auth error:', error);
@@ -53,20 +63,12 @@ export default function App() {
     }
   };
 
-const handleLogout = () => {
-    // 1. Видаляємо пропуск
+  const handleLogout = () => {
     localStorage.removeItem('token');
-
-    // 2. Видаляємо пам'ять про натиснуті лайки
     localStorage.removeItem('liked_current_cat');
     setHasLiked(false);
-
-    // 3. Змінюємо інтерфейс
     setIsLoggedIn(false);
     setActiveTab('home');
-
-    // (Опціонально) Щоб гарантовано скинути всі лічильники і стейти,
-    // найкраще просто м'яко перезавантажити сторінку:
     window.location.reload();
   };
 
@@ -79,16 +81,7 @@ const handleLogout = () => {
   const ENDPOINT_POST_LIKE = `${BASE_URL}/likes/`;
   const ENDPOINT_DELETE_LIKE = `${BASE_URL}/likes/${CAT_ID}`;
 
-  // --- СТАН ДЛЯ КОМЕНТАРІВ ---
-  const [comments, setComments] = useState([
-    { id: 1, text: "Який милий пухнастик! 😍", author: "Олена", isMine: false },
-    { id: 2, text: "Обожнюю рудих котів, просто супер.", author: "Максим", isMine: false }
-  ]);
-  const [newComment, setNewComment] = useState('');
-  const [editingCommentId, setEditingCommentId] = useState(null);
-  const [editCommentText, setEditCommentText] = useState('');
-
-  // --- ЗАВАНТАЖЕННЯ ЛАЙКІВ (Із перевіркою токена) ---
+  // --- ЗАВАНТАЖЕННЯ ЛАЙКІВ ---
   useEffect(() => {
     const fetchLikes = async () => {
       try {
@@ -107,12 +100,9 @@ const handleLogout = () => {
 
         const data = await response.json();
 
-        // 1. Якщо сервер повернув масив (список)
         if (Array.isArray(data)) {
-            setLikes(data.length); // Кількість лайків = довжина списку
-        }
-        // 2. Старий варіант про всяк випадок (якщо бекендер колись змінить логіку)
-        else if (data !== undefined && data !== null) {
+            setLikes(data.length);
+        } else if (data !== undefined && data !== null) {
           let newLikes = 0;
           if (typeof data === 'number') newLikes = data;
           else if (data.likes_count !== undefined) newLikes = Number(data.likes_count);
@@ -134,8 +124,14 @@ const handleLogout = () => {
     }
   }, []);
 
-  // --- ГОЛОВНА ФУНКЦІЯ ЛАЙКУ (Із відправкою токена) ---
+  // --- ГОЛОВНА ФУНКЦІЯ ЛАЙКУ ---
   const handleLike = async () => {
+    // ЗАХИСТ ВІД НЕАВТОРИЗОВАНИХ
+    if (!isLoggedIn) {
+        setShowAuthModal(true);
+        return;
+    }
+
     const isLikingNow = !hasLiked;
     setHasLiked(isLikingNow);
     setLikes(prev => isLikingNow ? prev + 1 : Math.max(0, prev - 1));
@@ -177,15 +173,31 @@ const handleLogout = () => {
     }
   };
 
+  // --- СТАН ДЛЯ КОМЕНТАРІВ ---
+  const [comments, setComments] = useState([
+    { id: 1, text: "Який милий пухнастик! 😍", author: "Олена", isMine: false },
+    { id: 2, text: "Обожнюю рудих котів, просто супер.", author: "Максим", isMine: false }
+  ]);
+  const [newComment, setNewComment] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editCommentText, setEditCommentText] = useState('');
+
   // --- ФУНКЦІЇ ДЛЯ КОМЕНТАРІВ ---
   const handleAddComment = (e) => {
     e.preventDefault();
+
+    // ЗАХИСТ ВІД НЕАВТОРИЗОВАНИХ
+    if (!isLoggedIn) {
+        setShowAuthModal(true);
+        return;
+    }
+
     if (!newComment.trim()) return;
 
     const comment = {
       id: Date.now(),
       text: newComment,
-      author: "Ви (Гість)",
+      author: "Ви",
       isMine: true
     };
 
@@ -219,7 +231,7 @@ const handleLogout = () => {
   };
 
   return (
-    <div className="flex h-screen bg-[#f4f4f5] font-sans">
+    <div className="flex h-screen bg-[#f4f4f5] font-sans relative">
 
         {/* БІЧНА ПАНЕЛЬ (Sidebar) */}
         <div className="w-64 bg-white border-r border-gray-200 flex flex-col hidden md:flex shrink-0">
@@ -234,7 +246,14 @@ const handleLogout = () => {
             {/* Кнопка "Додати котика" */}
             <div className="px-4 mb-6">
                 <button
-                    onClick={() => setActiveTab('addCat')}
+                    onClick={() => {
+                        // ЗАХИСТ ВІД НЕАВТОРИЗОВАНИХ
+                        if (!isLoggedIn) {
+                            setShowAuthModal(true);
+                            return;
+                        }
+                        setActiveTab('addCat');
+                    }}
                     className="w-full bg-[#bf04ff] hover:bg-[#a103d8] text-white font-bold py-3 px-4 rounded-2xl flex items-center justify-center gap-2 transition-colors"
                 >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -452,7 +471,6 @@ const handleLogout = () => {
                             />
                             <button
                                 type="submit"
-                                disabled={!newComment.trim()}
                                 className={`flex items-center justify-center w-14 rounded-2xl transition-all ${
                                     newComment.trim() ? 'bg-[#bf04ff] hover:bg-[#a103d8] text-white shadow-lg shadow-purple-500/30 cursor-pointer' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 }`}
@@ -555,10 +573,62 @@ const handleLogout = () => {
             {/* Заглушки */}
             {activeTab === 'explore' && <h2 className="text-3xl font-bold text-gray-400 m-auto">Сторінка "Огляд" (В розробці)</h2>}
             {activeTab === 'rating' && <h2 className="text-3xl font-bold text-gray-400 m-auto">Сторінка "Рейтинг" (В розробці)</h2>}
-            {activeTab === 'mycats' && <h2 className="text-3xl font-bold text-gray-400 m-auto">Сторінка "Мої котики" (В розробці)</h2>}
+            {activeTab === 'mycats' && <h2 className="text-3xl font-bold text-gray-400 m-auto">Сторінка "Мої котики" (Катруся❤️)</h2>}
             {activeTab === 'profile' && <h2 className="text-3xl font-bold text-gray-400 m-auto">Сторінка "Профіль" (В розробці)</h2>}
 
         </div>
+
+        {/* --- ПЛАШКА: КАТРУСЯ ЗАБОРОНЯЄ (Для гостей) --- */}
+        {showAuthModal && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                <div className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl relative animate-[bounce-in_0.5s_ease-out]">
+                    <button onClick={() => setShowAuthModal(false)} className="absolute top-6 right-6 text-gray-400 hover:text-red-500 transition-colors">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                    <div className="flex flex-col items-center text-center mt-2">
+                        <div className="w-24 h-24 bg-rose-50 rounded-full flex items-center justify-center mb-6 border-4 border-rose-100 shadow-inner">
+                            <span className="text-5xl">😾</span>
+                        </div>
+                        <h3 className="text-2xl font-black text-gray-900 mb-3">Обережно!</h3>
+                        <p className="text-gray-600 mb-8 font-medium leading-relaxed text-lg px-2">
+                            <span className="text-rose-500 font-bold">Катруся забороняє</span> подібні дії не зараєстрованим користувачам, вона буде злитись!
+                            <br/><br/>Зараєструйтесь чи увійдіть, для початку!
+                        </p>
+                        <div className="flex w-full gap-3">
+                            <button onClick={() => { setShowAuthModal(false); setActiveTab('auth'); setAuthMode('register'); }} className="flex-1 bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-700 font-bold py-4 px-4 rounded-xl transition-colors">
+                                Реєстрація
+                            </button>
+                            <button onClick={() => { setShowAuthModal(false); setActiveTab('auth'); setAuthMode('login'); }} className="flex-1 bg-[#bf04ff] hover:bg-[#a103d8] text-white font-bold py-4 px-4 rounded-xl transition-colors shadow-lg shadow-purple-500/30">
+                                Увійти
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* --- ПЛАШКА: СЮРПРИЗ ДЛЯ КАТРУСІ (При логіні) --- */}
+        {showSurprise && (
+            <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/85 backdrop-blur-md transition-opacity duration-1000">
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    {[...Array(25)].map((_, i) => (
+                        <div key={i} className="absolute text-red-500/40 animate-pulse" style={{ left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`, fontSize: `${Math.random() * 20 + 10}px`, animationDuration: `${Math.random() * 3 + 2}s`, animationDelay: `${Math.random() * 2}s` }}>❤</div>
+                    ))}
+                </div>
+                <div className="relative flex flex-col items-center animate-[bounce_3s_infinite] z-10">
+                    <svg className="w-48 h-48 text-red-500 drop-shadow-[0_0_60px_rgba(239,68,68,0.9)] animate-pulse" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
+                    <h1 className="mt-8 text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-red-500 to-rose-400 text-center px-4 drop-shadow-2xl">
+                        Дуже кохаю тебе, моє сонечко &lt;3
+                    </h1>
+                </div>
+                <button onClick={() => { setShowSurprise(false); setActiveTab('home'); }} className="mt-16 px-8 py-4 bg-red-500/20 hover:bg-red-500/40 border-2 border-red-500/50 text-red-100 rounded-full font-bold tracking-widest uppercase transition-all hover:scale-110 backdrop-blur-sm z-10 shadow-[0_0_30px_rgba(239,68,68,0.3)]">
+                    Перейти до котиків 🐾
+                </button>
+            </div>
+        )}
+
     </div>
   );
 }
