@@ -1,8 +1,10 @@
+import React, { useState, useEffect } from 'react'; // Виправлено імпорт
+import Ads from './Ads';
 import AddCat from './AddCat';
-import { useState, useEffect } from 'react';
 
-export default function App() {
+export default function App() { // Відкриваємо дужку тут
   const [activeTab, setActiveTab] = useState('home');
+  // ... весь інший код стейтів та функцій ...
   const [authMode, setAuthMode] = useState('login');
 
   // --- СТЕЙТИ ДЛЯ АВТОРИЗАЦІЇ ---
@@ -20,7 +22,6 @@ export default function App() {
   // --- ФУНКЦІЇ АВТОРИЗАЦІЇ ---
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
-
     const endpoint = authMode === 'login' ? `${BASE_URL}/login` : `${BASE_URL}/register`;
     const payload = authMode === 'login'
         ? { email: authEmail, password: authPassword }
@@ -143,6 +144,7 @@ export default function App() {
       let response;
       const token = localStorage.getItem('token');
       const headers = { 'Content-Type': 'application/json' };
+
       if (token) {
           headers['Authorization'] = `Bearer ${token}`;
       }
@@ -178,6 +180,7 @@ export default function App() {
     { id: 1, text: "Який милий пухнастик! 😍", author: "Олена", isMine: false },
     { id: 2, text: "Обожнюю рудих котів, просто супер.", author: "Максим", isMine: false }
   ]);
+
   const [newComment, setNewComment] = useState('');
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editCommentText, setEditCommentText] = useState('');
@@ -218,9 +221,11 @@ export default function App() {
 
   const handleSaveEdit = () => {
     if (!editCommentText.trim()) return;
+
     setComments(comments.map(c =>
       c.id === editingCommentId ? { ...c, text: editCommentText } : c
     ));
+
     setEditingCommentId(null);
     setEditCommentText('');
   };
@@ -228,6 +233,27 @@ export default function App() {
   const handleCancelEdit = () => {
     setEditingCommentId(null);
     setEditCommentText('');
+  };
+
+  // --- СТАН ТА ФУНКЦІЇ ДЛЯ ОГОЛОШЕНЬ ТА КАРТИ ---
+  const [adsList, setAdsList] = useState([
+    { id: 1, title: 'Знайдено рудого кота', description: 'Сидить біля під\'їзду, дуже ласкавий. На вигляд домашній.', location: 'вул. Шевченка, 12' },
+    { id: 2, title: 'Шукаю британця', description: 'Загубився вчора ввечері, відгукується на ім\'я Том.', location: 'Парк Франка' }
+  ]);
+  const [showAdForm, setShowAdForm] = useState(false);
+  const [newAdData, setNewAdData] = useState({ title: '', description: '', location: '' });
+
+  const handleAddAd = (e) => {
+    e.preventDefault();
+    if (!isLoggedIn) {
+      setShowAuthModal(true);
+      return;
+    }
+    if (!newAdData.title.trim() || !newAdData.description.trim()) return;
+
+    setAdsList([{ id: Date.now(), ...newAdData }, ...adsList]);
+    setNewAdData({ title: '', description: '', location: '' });
+    setShowAdForm(false);
   };
 
   return (
@@ -268,7 +294,8 @@ export default function App() {
                 <button
                     onClick={() => setActiveTab('home')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
-                        activeTab === 'home' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
+                        activeTab === 'home' ?
+                        'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
                     }`}
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,20 +307,22 @@ export default function App() {
                 <button
                     onClick={() => setActiveTab('explore')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
-                        activeTab === 'explore' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
+                        activeTab === 'explore' ?
+                        'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
                     }`}
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                     </svg>
-                    Огляд
+                    Карта / Огляд
                 </button>
 
                 <button
                     onClick={() => setActiveTab('rating')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
-                        activeTab === 'rating' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
+                        activeTab === 'rating' ?
+                        'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
                     }`}
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -305,7 +334,8 @@ export default function App() {
                 <button
                     onClick={() => setActiveTab('mycats')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
-                        activeTab === 'mycats' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
+                        activeTab === 'mycats' ?
+                        'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
                     }`}
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -317,7 +347,8 @@ export default function App() {
                 <button
                     onClick={() => setActiveTab('profile')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
-                        activeTab === 'profile' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
+                        activeTab === 'profile' ?
+                        'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
                     }`}
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -472,7 +503,8 @@ export default function App() {
                             <button
                                 type="submit"
                                 className={`flex items-center justify-center w-14 rounded-2xl transition-all ${
-                                    newComment.trim() ? 'bg-[#bf04ff] hover:bg-[#a103d8] text-white shadow-lg shadow-purple-500/30 cursor-pointer' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    newComment.trim() ?
+                                    'bg-[#bf04ff] hover:bg-[#a103d8] text-white shadow-lg shadow-purple-500/30 cursor-pointer' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 }`}
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
@@ -489,6 +521,119 @@ export default function App() {
                         setActiveTab('home');
                         window.location.reload();
                     }} />
+                </div>
+            )}
+
+            {/* Вкладка: КАРТА ОГОЛОШЕНЬ (Колишній Explore) */}
+            {activeTab === 'explore' && (
+                <div className="w-full max-w-4xl flex flex-col gap-6 pb-12 mt-6">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
+                        <div>
+                            <h2 className="text-3xl font-black text-gray-900">Карта оголошень 🗺️</h2>
+                            <p className="text-gray-500 mt-1">Знайдіть улюбленця або допоможіть іншим</p>
+                        </div>
+                        <button
+                            onClick={() => {
+                                if (!isLoggedIn) {
+                                    setShowAuthModal(true);
+                                    return;
+                                }
+                                setShowAdForm(!showAdForm);
+                            }}
+                            className="w-full md:w-auto bg-[#bf04ff] hover:bg-[#a103d8] text-white font-bold py-3 px-6 rounded-2xl transition-colors shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2"
+                        >
+                            {showAdForm ? 'Скасувати створення' : '+ Створити оголошення'}
+                        </button>
+                    </div>
+
+                    {/* БЛОК ІНТЕРАКТИВНОЇ КАРТИ (Візуальна імітація) */}
+                    <div className="relative w-full h-80 bg-blue-50/50 rounded-[32px] border-2 border-blue-100 overflow-hidden shadow-sm flex items-center justify-center mb-2">
+                        {/* Декоративна сітка для фону карти */}
+                        <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(#bf04ff 1px, transparent 1px)', backgroundSize: '24px 24px', opacity: 0.1 }}></div>
+                        
+                        <div className="text-center z-10 bg-white/90 p-6 rounded-3xl backdrop-blur-md shadow-sm border border-gray-100">
+                            <span className="text-5xl block mb-3">📍</span>
+                            <p className="text-xl font-black text-gray-900">Місце для карти</p>
+                            <p className="text-gray-500 text-sm mt-1">Тут відображатимуться піни оголошень</p>
+                        </div>
+
+                        {/* Плаваючі піни */}
+                        <div className="absolute top-[20%] left-[25%] text-4xl animate-bounce drop-shadow-lg cursor-pointer hover:scale-110 transition-transform">📍</div>
+                        <div className="absolute bottom-[25%] right-[20%] text-4xl animate-bounce drop-shadow-lg cursor-pointer hover:scale-110 transition-transform" style={{ animationDelay: '0.4s' }}>📍</div>
+                        <div className="absolute top-[45%] right-[40%] text-4xl animate-bounce drop-shadow-lg cursor-pointer hover:scale-110 transition-transform" style={{ animationDelay: '0.2s' }}>📍</div>
+                    </div>
+
+                    <div className="flex flex-col lg:flex-row gap-6 items-start">
+                        {/* ФОРМА ДОДАВАННЯ ОГОЛОШЕННЯ */}
+                        {showAdForm && (
+                            <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 w-full lg:w-1/3 animate-[bounce-in_0.3s_ease-out] shrink-0">
+                                <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                    <span className="text-[#bf04ff]">📝</span> Нове оголошення
+                                </h3>
+                                <form onSubmit={handleAddAd} className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">Заголовок</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Знайдено рудого кота..."
+                                            required
+                                            value={newAdData.title}
+                                            onChange={(e) => setNewAdData({...newAdData, title: e.target.value})}
+                                            className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">Локація</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Вул. Степана Бандери, 12"
+                                            required
+                                            value={newAdData.location}
+                                            onChange={(e) => setNewAdData({...newAdData, location: e.target.value})}
+                                            className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">Опис ситуації</label>
+                                        <textarea
+                                            placeholder="Опишіть деталі, особливі прикмети..."
+                                            required
+                                            rows="4"
+                                            value={newAdData.description}
+                                            onChange={(e) => setNewAdData({...newAdData, description: e.target.value})}
+                                            className="w-full bg-gray-50 border border-gray-200 text-gray-900 rounded-xl focus:ring-[#bf04ff] focus:border-[#bf04ff] block p-3.5 outline-none transition-colors resize-none"
+                                        />
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        className="w-full bg-gray-900 hover:bg-gray-800 text-white font-bold py-4 rounded-xl transition-colors shadow-lg mt-2"
+                                    >
+                                        Опублікувати на карті
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+
+                        {/* СПИСОК ОГОЛОШЕНЬ */}
+                        <div className="flex-1 w-full space-y-4">
+                            <h3 className="text-xl font-bold text-gray-900 mb-4">Актуальні оголошення <span className="text-gray-400 font-medium text-lg">({adsList.length})</span></h3>
+                            {adsList.length === 0 ? (
+                                <p className="text-gray-500 text-center py-8 bg-white rounded-[32px] border border-gray-100">Немає активних оголошень.</p>
+                            ) : (
+                                adsList.map(ad => (
+                                    <div key={ad.id} className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 hover:border-purple-200 transition-colors">
+                                        <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-3">
+                                            <h4 className="font-bold text-xl text-gray-900">{ad.title}</h4>
+                                            <span className="text-sm font-bold bg-[#fdf4ff] text-[#bf04ff] px-3 py-1.5 rounded-full flex items-center gap-1 border border-purple-100 shrink-0">
+                                                📍 {ad.location}
+                                            </span>
+                                        </div>
+                                        <p className="text-gray-600 leading-relaxed text-lg">{ad.description}</p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -570,11 +715,11 @@ export default function App() {
                 </div>
             )}
 
-            {/* Заглушки */}
-            {activeTab === 'explore' && <h2 className="text-3xl font-bold text-gray-400 m-auto">Сторінка "Огляд" (В розробці)</h2>}
+            {/* Заглушки інших сторінок */}
             {activeTab === 'rating' && <h2 className="text-3xl font-bold text-gray-400 m-auto">Сторінка "Рейтинг" (В розробці)</h2>}
             {activeTab === 'mycats' && <h2 className="text-3xl font-bold text-gray-400 m-auto">Сторінка "Мої котики" (Сумно)</h2>}
             {activeTab === 'profile' && <h2 className="text-3xl font-bold text-gray-400 m-auto">Сторінка "Профіль" (В розробці)</h2>}
+            {activeTab === 'ads' && <Ads />} 
 
         </div>
 
@@ -594,7 +739,7 @@ export default function App() {
                         <h3 className="text-2xl font-black text-gray-900 mb-3">Обережно!</h3>
                         <p className="text-gray-600 mb-8 font-medium leading-relaxed text-lg px-2">
                             <span className="text-rose-500 font-bold">Адміністрація забороняє</span> подібні дії не зараєстрованим користувачам, вона буде злитись!
-                            <br/><br/>Зараєструйтесь чи увійдіть, для початку!
+                            <br/><br/>Зареєструйтесь чи увійдіть, для початку!
                         </p>
                         <div className="flex w-full gap-3">
                             <button onClick={() => { setShowAuthModal(false); setActiveTab('auth'); setAuthMode('register'); }} className="flex-1 bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-700 font-bold py-4 px-4 rounded-xl transition-colors">
