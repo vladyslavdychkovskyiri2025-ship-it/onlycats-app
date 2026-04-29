@@ -1,10 +1,75 @@
-import React, { useState, useEffect } from 'react'; // Виправлено імпорт
+import React, { useState, useEffect } from 'react';
 import Ads from './Ads';
 import AddCat from './AddCat';
 
-export default function App() { // Відкриваємо дужку тут
+// --- КОМПОНЕНТ СТОРІНКИ ЗАВДАНЬ (НОВЕ) ---
+const TasksPage = () => {
+  const [tasks, setTasks] = useState([
+    { id: 1, text: 'Погодувати кота', completed: false },
+    { id: 2, text: 'Погладити кота', completed: false },
+    { id: 3, text: 'Прибрати за котом', completed: false }
+  ]);
+
+  const toggleTask = (id) => {
+    setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+  };
+
+  const completedCount = tasks.filter(t => t.completed).length;
+  const progress = Math.round((completedCount / tasks.length) * 100);
+
+  return (
+    <div className="p-4 md:p-8 max-w-2xl mx-auto w-full">
+      <h2 className="text-3xl font-black text-gray-900 mb-8 tracking-tight">Завдання OnlyCats 🐾</h2>
+      
+      {/* Прогрес-бар */}
+      <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 mb-8">
+        <div className="flex justify-between items-center mb-3">
+           <span className="font-bold text-gray-700">Твій прогрес догляду</span>
+           <span className="text-[#bf04ff] font-black text-xl">{progress}%</span>
+        </div>
+        <div className="w-full bg-gray-100 h-4 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-[#bf04ff] transition-all duration-500 ease-out shadow-[0_0_15px_rgba(191,4,255,0.4)]" 
+            style={{ width: `${progress}%` }}
+          ></div>
+        </div>
+      </div>
+
+      {/* Список завдань */}
+      <div className="space-y-4">
+        {tasks.map(task => (
+          <div 
+            key={task.id} 
+            onClick={() => toggleTask(task.id)}
+            className={`flex items-center gap-4 p-6 rounded-3xl border-2 cursor-pointer transition-all duration-200 ${
+              task.completed 
+              ? 'bg-purple-50 border-purple-100 scale-[0.98]' 
+              : 'bg-white border-gray-50 hover:border-purple-200 shadow-sm'
+            }`}
+          >
+            <div className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all ${
+              task.completed ? 'bg-[#bf04ff] border-[#bf04ff]' : 'border-gray-300 bg-white'
+            }`}>
+              {task.completed && (
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              )}
+            </div>
+            <span className={`text-xl font-bold transition-all ${
+              task.completed ? 'text-gray-400 line-through' : 'text-gray-800'
+            }`}>
+              {task.text}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default function App() {
   const [activeTab, setActiveTab] = useState('home');
-  // ... весь інший код стейтів та функцій ...
   const [authMode, setAuthMode] = useState('login');
 
   // --- СТЕЙТИ ДЛЯ АВТОРИЗАЦІЇ ---
@@ -22,6 +87,7 @@ export default function App() { // Відкриваємо дужку тут
   // --- ФУНКЦІЇ АВТОРИЗАЦІЇ ---
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
+
     const endpoint = authMode === 'login' ? `${BASE_URL}/login` : `${BASE_URL}/register`;
     const payload = authMode === 'login'
         ? { email: authEmail, password: authPassword }
@@ -144,7 +210,6 @@ export default function App() { // Відкриваємо дужку тут
       let response;
       const token = localStorage.getItem('token');
       const headers = { 'Content-Type': 'application/json' };
-
       if (token) {
           headers['Authorization'] = `Bearer ${token}`;
       }
@@ -180,7 +245,6 @@ export default function App() { // Відкриваємо дужку тут
     { id: 1, text: "Який милий пухнастик! 😍", author: "Олена", isMine: false },
     { id: 2, text: "Обожнюю рудих котів, просто супер.", author: "Максим", isMine: false }
   ]);
-
   const [newComment, setNewComment] = useState('');
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editCommentText, setEditCommentText] = useState('');
@@ -221,11 +285,9 @@ export default function App() { // Відкриваємо дужку тут
 
   const handleSaveEdit = () => {
     if (!editCommentText.trim()) return;
-
     setComments(comments.map(c =>
       c.id === editingCommentId ? { ...c, text: editCommentText } : c
     ));
-
     setEditingCommentId(null);
     setEditCommentText('');
   };
@@ -294,8 +356,7 @@ export default function App() { // Відкриваємо дужку тут
                 <button
                     onClick={() => setActiveTab('home')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
-                        activeTab === 'home' ?
-                        'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
+                        activeTab === 'home' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
                     }`}
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -307,8 +368,7 @@ export default function App() { // Відкриваємо дужку тут
                 <button
                     onClick={() => setActiveTab('explore')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
-                        activeTab === 'explore' ?
-                        'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
+                        activeTab === 'explore' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
                     }`}
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -318,11 +378,23 @@ export default function App() { // Відкриваємо дужку тут
                     Карта / Огляд
                 </button>
 
+                {/* НОВА КНОПКА "ЗАВДАННЯ" */}
+                <button
+                    onClick={() => setActiveTab('tasks')}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
+                        activeTab === 'tasks' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                    </svg>
+                    Завдання
+                </button>
+
                 <button
                     onClick={() => setActiveTab('rating')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
-                        activeTab === 'rating' ?
-                        'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
+                        activeTab === 'rating' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
                     }`}
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -334,8 +406,7 @@ export default function App() { // Відкриваємо дужку тут
                 <button
                     onClick={() => setActiveTab('mycats')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
-                        activeTab === 'mycats' ?
-                        'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
+                        activeTab === 'mycats' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
                     }`}
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -347,8 +418,7 @@ export default function App() { // Відкриваємо дужку тут
                 <button
                     onClick={() => setActiveTab('profile')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
-                        activeTab === 'profile' ?
-                        'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
+                        activeTab === 'profile' ? 'bg-[#fdf4ff] text-[#bf04ff]' : 'text-gray-600 hover:bg-gray-50'
                     }`}
                 >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -503,8 +573,7 @@ export default function App() { // Відкриваємо дужку тут
                             <button
                                 type="submit"
                                 className={`flex items-center justify-center w-14 rounded-2xl transition-all ${
-                                    newComment.trim() ?
-                                    'bg-[#bf04ff] hover:bg-[#a103d8] text-white shadow-lg shadow-purple-500/30 cursor-pointer' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    newComment.trim() ? 'bg-[#bf04ff] hover:bg-[#a103d8] text-white shadow-lg shadow-purple-500/30 cursor-pointer' : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 }`}
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
@@ -524,7 +593,7 @@ export default function App() { // Відкриваємо дужку тут
                 </div>
             )}
 
-            {/* Вкладка: КАРТА ОГОЛОШЕНЬ (Колишній Explore) */}
+            {/* Вкладка: КАРТА ОГОЛОШЕНЬ (Explore) */}
             {activeTab === 'explore' && (
                 <div className="w-full max-w-4xl flex flex-col gap-6 pb-12 mt-6">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
@@ -546,9 +615,8 @@ export default function App() { // Відкриваємо дужку тут
                         </button>
                     </div>
 
-                    {/* БЛОК ІНТЕРАКТИВНОЇ КАРТИ (Візуальна імітація) */}
+                    {/* БЛОК ІНТЕРАКТИВНОЇ КАРТИ */}
                     <div className="relative w-full h-80 bg-blue-50/50 rounded-[32px] border-2 border-blue-100 overflow-hidden shadow-sm flex items-center justify-center mb-2">
-                        {/* Декоративна сітка для фону карти */}
                         <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(#bf04ff 1px, transparent 1px)', backgroundSize: '24px 24px', opacity: 0.1 }}></div>
                         
                         <div className="text-center z-10 bg-white/90 p-6 rounded-3xl backdrop-blur-md shadow-sm border border-gray-100">
@@ -636,6 +704,9 @@ export default function App() { // Відкриваємо дужку тут
                     </div>
                 </div>
             )}
+
+            {/* НОВА ВКЛАДКА ЗАВДАНЬ */}
+            {activeTab === 'tasks' && <TasksPage />}
 
             {/* Вкладка Реєстрації/Авторизації */}
             {activeTab === 'auth' && (
