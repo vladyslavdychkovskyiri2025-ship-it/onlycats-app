@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Ads from './Ads';
 import AddCat from './AddCat';
+// --- ДОДАНО ДЛЯ КАРТИ ---
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
-// --- КОМПОНЕНТ СТОРІНКИ ЗАВДАНЬ (НОВЕ) ---
+// --- КОМПОНЕНТ СТОРІНКИ ЗАВДАНЬ ---
 const TasksPage = () => {
   const [tasks, setTasks] = useState([
     { id: 1, text: 'Погодувати кота', completed: false },
@@ -71,6 +73,15 @@ const TasksPage = () => {
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [authMode, setAuthMode] = useState('login');
+
+  // --- НАЛАШТУВАННЯ GOOGLE MAPS ---
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: "AIzaSyBojvGj7qDX3upeWIYbC3MFI1j58w4QNEs" // <--- ОСЬ ТУТ ПОТРІБЕН ТВІЙ КЛЮЧ
+  });
+
+  const mapContainerStyle = { width: '100%', height: '400px', borderRadius: '32px' };
+  const center = { lat: 49.8397, lng: 24.0297 }; // Центр (Львів)
 
   // --- СТЕЙТИ ДЛЯ АВТОРИЗАЦІЇ ---
   const [authName, setAuthName] = useState('');
@@ -193,7 +204,6 @@ export default function App() {
 
   // --- ГОЛОВНА ФУНКЦІЯ ЛАЙКУ ---
   const handleLike = async () => {
-    // ЗАХИСТ ВІД НЕАВТОРИЗОВАНИХ
     if (!isLoggedIn) {
         setShowAuthModal(true);
         return;
@@ -253,7 +263,6 @@ export default function App() {
   const handleAddComment = (e) => {
     e.preventDefault();
 
-    // ЗАХИСТ ВІД НЕАВТОРИЗОВАНИХ
     if (!isLoggedIn) {
         setShowAuthModal(true);
         return;
@@ -299,11 +308,11 @@ export default function App() {
 
   // --- СТАН ТА ФУНКЦІЇ ДЛЯ ОГОЛОШЕНЬ ТА КАРТИ ---
   const [adsList, setAdsList] = useState([
-    { id: 1, title: 'Знайдено рудого кота', description: 'Сидить біля під\'їзду, дуже ласкавий. На вигляд домашній.', location: 'вул. Шевченка, 12' },
-    { id: 2, title: 'Шукаю британця', description: 'Загубився вчора ввечері, відгукується на ім\'я Том.', location: 'Парк Франка' }
+    { id: 1, title: 'Знайдено рудого кота', description: 'Сидить біля під\'їзду, дуже ласкавий. На вигляд домашній.', location: 'вул. Шевченка, 12', lat: 49.8397, lng: 24.0297 },
+    { id: 2, title: 'Шукаю британця', description: 'Загубився вчора ввечері, відгукується на ім\'я Том.', location: 'Парк Франка', lat: 49.8412, lng: 24.0215 }
   ]);
   const [showAdForm, setShowAdForm] = useState(false);
-  const [newAdData, setNewAdData] = useState({ title: '', description: '', location: '' });
+  const [newAdData, setNewAdData] = useState({ title: '', description: '', location: '', lat: 49.8397, lng: 24.0297 });
 
   const handleAddAd = (e) => {
     e.preventDefault();
@@ -314,7 +323,7 @@ export default function App() {
     if (!newAdData.title.trim() || !newAdData.description.trim()) return;
 
     setAdsList([{ id: Date.now(), ...newAdData }, ...adsList]);
-    setNewAdData({ title: '', description: '', location: '' });
+    setNewAdData({ title: '', description: '', location: '', lat: 49.8397, lng: 24.0297 });
     setShowAdForm(false);
   };
 
@@ -335,7 +344,6 @@ export default function App() {
             <div className="px-4 mb-6">
                 <button
                     onClick={() => {
-                        // ЗАХИСТ ВІД НЕАВТОРИЗОВАНИХ
                         if (!isLoggedIn) {
                             setShowAuthModal(true);
                             return;
@@ -378,7 +386,6 @@ export default function App() {
                     Карта / Огляд
                 </button>
 
-                {/* НОВА КНОПКА "ЗАВДАННЯ" */}
                 <button
                     onClick={() => setActiveTab('tasks')}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl font-bold transition-colors ${
@@ -616,19 +623,27 @@ export default function App() {
                     </div>
 
                     {/* БЛОК ІНТЕРАКТИВНОЇ КАРТИ */}
-                    <div className="relative w-full h-80 bg-blue-50/50 rounded-[32px] border-2 border-blue-100 overflow-hidden shadow-sm flex items-center justify-center mb-2">
-                        <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(#bf04ff 1px, transparent 1px)', backgroundSize: '24px 24px', opacity: 0.1 }}></div>
-                        
-                        <div className="text-center z-10 bg-white/90 p-6 rounded-3xl backdrop-blur-md shadow-sm border border-gray-100">
-                            <span className="text-5xl block mb-3">📍</span>
-                            <p className="text-xl font-black text-gray-900">Місце для карти</p>
-                            <p className="text-gray-500 text-sm mt-1">Тут відображатимуться піни оголошень</p>
-                        </div>
-
-                        {/* Плаваючі піни */}
-                        <div className="absolute top-[20%] left-[25%] text-4xl animate-bounce drop-shadow-lg cursor-pointer hover:scale-110 transition-transform">📍</div>
-                        <div className="absolute bottom-[25%] right-[20%] text-4xl animate-bounce drop-shadow-lg cursor-pointer hover:scale-110 transition-transform" style={{ animationDelay: '0.4s' }}>📍</div>
-                        <div className="absolute top-[45%] right-[40%] text-4xl animate-bounce drop-shadow-lg cursor-pointer hover:scale-110 transition-transform" style={{ animationDelay: '0.2s' }}>📍</div>
+                    <div className="w-full mb-6 shadow-sm border border-gray-100 rounded-[32px] overflow-hidden">
+                        {isLoaded ? (
+                            <GoogleMap
+                                mapContainerStyle={mapContainerStyle}
+                                center={center}
+                                zoom={13}
+                                options={{ streetViewControl: false, mapTypeControl: false }}
+                            >
+                                {adsList.map(ad => (
+                                    <Marker 
+                                        key={ad.id} 
+                                        position={{ lat: ad.lat, lng: ad.lng }} 
+                                        title={ad.title} 
+                                    />
+                                ))}
+                            </GoogleMap>
+                        ) : (
+                            <div className="w-full h-[400px] bg-gray-100 flex items-center justify-center rounded-[32px]">
+                                <p className="font-bold text-gray-500">Завантаження карти... 🗺️</p>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex flex-col lg:flex-row gap-6 items-start">
